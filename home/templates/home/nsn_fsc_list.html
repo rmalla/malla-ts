@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}FSC {{ fsc.code }} - {{ fsc.name }} - NSN Lookup{% endblock %}
+
+{% block content %}
+
+<section class="page-header page-header--with-image" style="background-image: url('{% static 'images/hero-nsn.jpg' %}')">
+    <div class="container">
+        <nav class="breadcrumb">
+            <a href="{% url 'nsn_search' %}">NSN Lookup</a>
+            <span class="separator">/</span>
+            <span class="current">FSC {{ fsc.code }}</span>
+        </nav>
+        <h1>FSC {{ fsc.code }}</h1>
+        <p class="page-intro">{{ fsc.name }}</p>
+    </div>
+</section>
+
+<section class="page-content">
+    <div class="container">
+
+        <div class="results-header">
+            <p class="results-count">{{ total_count }} item{{ total_count|pluralize }} in this category</p>
+        </div>
+
+        {% if items %}
+        <div class="nsn-results-list">
+            {% for item in items %}
+            <div class="nsn-result-card">
+                <div class="nsn-result-header">
+                    <a href="{% url 'nsn_detail' item.nsn %}" class="nsn-link">{{ item.nsn }}</a>
+                </div>
+                <h3 class="nsn-item-name">{{ item.item_name }}</h3>
+                {% if item.description %}
+                <p class="nsn-description">{{ item.description|truncatewords:30 }}</p>
+                {% endif %}
+                <div class="nsn-result-meta">
+                    {% if item.price %}
+                    <span class="nsn-price">{{ item.formatted_price }}</span>
+                    {% endif %}
+                    {% if item.unit_of_issue %}
+                    <span class="nsn-unit">Unit: {{ item.unit_of_issue }}</span>
+                    {% endif %}
+                </div>
+                <a href="{% url 'nsn_detail' item.nsn %}" class="btn btn-secondary btn-sm">View Details</a>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Pagination -->
+        {% if items.has_other_pages %}
+        <nav class="pagination-nav">
+            <ul class="pagination">
+                {% if items.has_previous %}
+                <li><a href="?page={{ items.previous_page_number }}">&laquo; Previous</a></li>
+                {% endif %}
+
+                <li class="page-info">Page {{ items.number }} of {{ items.paginator.num_pages }}</li>
+
+                {% if items.has_next %}
+                <li><a href="?page={{ items.next_page_number }}">Next &raquo;</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+
+        {% else %}
+        <div class="no-results">
+            <p>No items found in this category.</p>
+        </div>
+        {% endif %}
+
+        <!-- CTA Box -->
+        <div class="nsn-cta-box">
+            <h3>Need a Quote?</h3>
+            <p>Can't find what you're looking for? Our team can help source any NSN item in FSC {{ fsc.code }}.</p>
+            <a href="/contact/" class="btn btn-accent btn-lg">Request a Quote</a>
+        </div>
+
+        <!-- Back Link -->
+        <div class="nsn-back-link">
+            <a href="{% url 'nsn_search' %}">&larr; Back to NSN Search</a>
+        </div>
+
+    </div>
+</section>
+
+{% endblock content %}

@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% load static wagtailcore_tags wagtailimages_tags %}
+
+{% block body_class %}template-equipmentcategory{% endblock %}
+
+{% block content %}
+
+<section class="page-header{% if page.hero_image %} page-header--with-image{% endif %}"{% if page.hero_image %} style="background-image: url('{% image page.hero_image width-1920 as hero_bg %}{{ hero_bg.url }}')"{% endif %}>
+    <div class="container">
+        <h1>{{ page.title }}</h1>
+        {% if page.intro %}
+        <p class="page-intro">{{ page.intro }}</p>
+        {% endif %}
+    </div>
+</section>
+
+<section class="page-content">
+    <div class="container">
+        <div class="content-grid">
+            <div class="content-main">
+                {% if page.description %}
+                <div class="content-section">
+                    <h2>Overview</h2>
+                    {{ page.description|richtext }}
+                </div>
+                {% endif %}
+
+                {% if page.key_features %}
+                <div class="content-section">
+                    <h2>Key Features & Benefits</h2>
+                    {{ page.key_features|richtext }}
+                </div>
+                {% endif %}
+
+                {% if page.typical_applications %}
+                <div class="content-section">
+                    <h2>Typical Applications</h2>
+                    {{ page.typical_applications|richtext }}
+                </div>
+                {% endif %}
+
+                {% comment %}Display child equipment pages as cards{% endcomment %}
+                {% if page.get_children.live %}
+                <div class="content-section">
+                    <h2>Available Equipment</h2>
+                    <div class="equipment-cards-grid">
+                        {% for child in page.get_children.live %}
+                        <div class="equipment-card">
+                            <h3><a href="{% pageurl child %}">{{ child.title }}</a></h3>
+                            {% if child.specific.subtitle %}
+                            <p class="equipment-subtitle">{{ child.specific.subtitle }}</p>
+                            {% endif %}
+                            <a href="{% pageurl child %}" class="btn btn-secondary btn-sm">View Details</a>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <aside class="content-sidebar">
+                <div class="sidebar-cta-card">
+                    <h3>Request a Quote</h3>
+                    <p>Need pricing or have questions about our equipment? Our team is ready to help.</p>
+                    <a href="/contact/" class="btn btn-accent btn-block">Request a Quote</a>
+                    <div class="sidebar-phone">
+                        <p>Or call us directly:</p>
+                        <a href="tel:+18557062552" class="phone-link">+1 855 706 2552</a>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </div>
+</section>
+
+{% endblock content %}

@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ manufacturer.company_name|default:manufacturer.cage_code }} - Manufacturer{% endblock %}
+
+{% block extra_structured_data %}
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "{{ manufacturer.company_name|default:manufacturer.cage_code }}",
+    {% if manufacturer.website %}"url": "{{ manufacturer.website }}",{% endif %}
+    {% if manufacturer.city or manufacturer.state or manufacturer.country %}
+    "address": {
+        "@type": "PostalAddress"
+        {% if manufacturer.city %},"addressLocality": "{{ manufacturer.city }}"{% endif %}
+        {% if manufacturer.state %},"addressRegion": "{{ manufacturer.state }}"{% endif %}
+        {% if manufacturer.country %},"addressCountry": "{{ manufacturer.country }}"{% endif %}
+    },
+    {% endif %}
+    "identifier": {
+        "@type": "PropertyValue",
+        "name": "CAGE Code",
+        "value": "{{ manufacturer.cage_code }}"
+    }
+}
+</script>
+{% endblock %}
+
+{% block content %}
+
+<section class="page-header page-header--with-image nsn-header" style="background-image: url('{% static 'images/hero-nsn.jpg' %}')">
+    <div class="container">
+        <nav class="breadcrumb">
+            <a href="{% url 'product_list' %}">Products</a>
+            <span class="separator">/</span>
+            <span class="current">{{ manufacturer.company_name|default:manufacturer.cage_code }}</span>
+        </nav>
+        <h1>{{ manufacturer.company_name|default:manufacturer.cage_code }}</h1>
+        <p class="page-intro nsn-item-title">CAGE {{ manufacturer.cage_code }} | {{ product_count }} product{{ product_count|pluralize }}</p>
+    </div>
+</section>
+
+<section class="page-content">
+    <div class="container">
+        <div class="nsn-detail-grid">
+
+            <!-- Main Content -->
+            <div class="nsn-detail-main">
+
+                <!-- Company Info -->
+                <div class="nsn-detail-card">
+                    <h2>Company Information</h2>
+                    <table class="nsn-specs-table">
+                        {% if manufacturer.company_name %}
+                        <tr>
+                            <th>Company Name</th>
+                            <td>{{ manufacturer.company_name }}</td>
+                        </tr>
+                        {% endif %}
+                        <tr>
+                            <th>CAGE Code</th>
+                            <td>{{ manufacturer.cage_code }}</td>
+                        </tr>
+                        {% if manufacturer.city or manufacturer.state or manufacturer.country %}
+                        <tr>
+                            <th>Location</th>
+                            <td>{{ manufacturer.city }}{% if manufacturer.city and manufacturer.state %}, {% endif %}{{ manufacturer.state }}{% if manufacturer.country and manufacturer.state or manufacturer.country and manufacturer.city %}, {% endif %}{{ manufacturer.country }}</td>
+                        </tr>
+                        {% endif %}
+                        {% if manufacturer.uei %}
+                        <tr>
+                            <th>UEI</th>
+                            <td>{{ manufacturer.uei }}</td>
+                        </tr>
+                        {% endif %}
+                        {% if manufacturer.website %}
+                        <tr>
+                            <th>Website</th>
+                            <td><a href="{{ manufacturer.website }}" target="_blank" rel="noopener">{{ manufacturer.website }}</a></td>
+                        </tr>
+                        {% endif %}
+                    </table>
+                </div>
+
+                <!-- Products -->
+                <div class="nsn-detail-card">
+                    <h2>Products by {{ manufacturer.company_name|default:manufacturer.cage_code }}</h2>
+                    {% if products %}
+                    <div class="nsn-results-list">
+                        {% for item in products %}
+                        <div class="nsn-result-card">
+                            <div class="nsn-result-header">
+                                <a href="{% url 'product_detail' manufacturer.slug item.part_number_slug %}" class="nsn-link">{{ item.catalog_item.nsn }}</a>
+                                {% if item.catalog_item.fsc %}
+                                <span class="fsc-badge">FSC {{ item.catalog_item.fsc.code }}</span>
+                                {% endif %}
+                            </div>
+                            <h3 class="nsn-item-name">{{ item.display_name }}</h3>
+                            {% if item.part_number %}
+                            <p class="nsn-description">Part Number: <strong>{{ item.part_number }}</strong></p>
+                            {% endif %}
+                            <div class="nsn-result-meta">
+                                {% if item.catalog_item.unit_of_issue %}
+                                <span class="nsn-unit">Unit: {{ item.catalog_item.unit_of_issue }}</span>
+                                {% endif %}
+                            </div>
+                            <a href="{% url 'product_detail' manufacturer.slug item.part_number_slug %}" class="btn btn-secondary btn-sm">View Details</a>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p>No products currently listed for this manufacturer.</p>
+                    {% endif %}
+                </div>
+
+            </div>
+
+            <!-- Sidebar -->
+            <aside class="nsn-detail-sidebar">
+                <div class="nsn-quote-form-card">
+                    <h3>Request a Quote</h3>
+                    <p class="quote-intro">Need products from {{ manufacturer.company_name|default:manufacturer.cage_code }}?</p>
+
+                    <form class="nsn-quote-form" action="/contact/submit/" method="POST">
+                        {% csrf_token %}
+                        <input type="hidden" name="item_name" value="Products by {{ manufacturer.company_name|default:manufacturer.cage_code }} (CAGE {{ manufacturer.cage_code }})" />
+
+                        <div class="form-group">
+                            <label for="name">Name *</label>
+                            <input type="text" id="name" name="name" required />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="email">Email *</label>
+                            <input type="email" id="email" name="email" required />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="message">Message</label>
+                            <textarea id="message" name="message" rows="4">Please send more information about {{ manufacturer.company_name|default:manufacturer.cage_code }} products.</textarea>
+                        </div>
+
+                        <button type="submit" class="btn btn-accent btn-lg btn-block">Submit Request</button>
+                    </form>
+
+                    <div class="quote-contact">
+                        <p>Or call us directly:</p>
+                        <a href="tel:+18557062552" class="phone-link">+1 855 706 2552</a>
+                    </div>
+                </div>
+            </aside>
+
+        </div>
+
+        <!-- Back Link -->
+        <div class="nsn-back-link">
+            <a href="{% url 'product_list' %}">&larr; Back to Products</a>
+        </div>
+
+    </div>
+</section>
+
+{% endblock content %}

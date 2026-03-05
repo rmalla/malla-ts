@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+{% load static wagtailcore_tags wagtailimages_tags home_tags %}
+
+{% block body_class %}template-homepage{% endblock %}
+
+{% block content %}
+
+<!-- Hero Section -->
+<section class="hero{% if page.hero_image %} hero--with-image{% endif %}"{% if page.hero_image %} style="background-image: url('{% image page.hero_image width-1920 as hero_bg %}{{ hero_bg.url }}')"{% endif %}>
+    <div class="container">
+        <div class="hero-content">
+            <h1 class="hero-title">{{ page.hero_title }}</h1>
+            <p class="hero-subtitle">{{ page.hero_subtitle }}</p>
+            <div class="hero-description">
+                {{ page.hero_description|richtext }}
+            </div>
+            <div class="hero-actions">
+                <a href="/contact/" class="btn btn-accent btn-lg">Request a Quote</a>
+                <a href="/equipment/" class="btn btn-white btn-lg">Browse Equipment</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Trust Bar -->
+<section class="trust-bar">
+    <div class="container">
+        <div class="trust-items">
+            <div class="trust-item">
+                <div class="trust-icon">
+                    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="16" cy="16" r="14"/>
+                        <path d="M16 8v8l5 3"/>
+                    </svg>
+                </div>
+                <div class="trust-number">20+</div>
+                <div class="trust-label">Years Experience</div>
+            </div>
+            <div class="trust-item">
+                <div class="trust-icon">
+                    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="4" y="4" width="24" height="24" rx="3"/>
+                        <path d="M4 12h24"/>
+                        <path d="M12 4v24"/>
+                    </svg>
+                </div>
+                <div class="trust-number">4</div>
+                <div class="trust-label">Industries Served</div>
+            </div>
+            <div class="trust-item">
+                <div class="trust-icon">
+                    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M4 28V8l8-4 8 4 8-4v20l-8 4-8-4-8 4z"/>
+                        <path d="M12 4v20"/>
+                        <path d="M20 8v20"/>
+                    </svg>
+                </div>
+                <div class="trust-number">NSN</div>
+                <div class="trust-label">Database Access</div>
+            </div>
+            <div class="trust-item">
+                <div class="trust-icon">
+                    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="16" cy="13" r="9"/>
+                        <path d="M16 22v6"/>
+                        <path d="M10 28h12"/>
+                        <path d="M12 7l4 4 8-6"/>
+                    </svg>
+                </div>
+                <div class="trust-number">USA</div>
+                <div class="trust-label">Nationwide Delivery</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Intro Section -->
+{% if page.intro_section %}
+<section class="section">
+    <div class="container container-narrow">
+        {{ page.intro_section|richtext }}
+    </div>
+</section>
+{% endif %}
+
+<!-- Services Overview -->
+<section class="services-overview">
+    <div class="container">
+        <div class="section-header">
+            <p class="section-title">What We Do</p>
+            <h2 class="section-heading">Industries We Serve</h2>
+        </div>
+        <div class="services-grid">
+            <div class="service-card">
+                <div class="service-card-image">
+                    <img src="{% static 'images/industry-government.jpg' %}" alt="Government Facilities" loading="lazy" onerror="this.parentElement.style.display='none'" />
+                    <div class="service-icon">
+                        <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M24 4L4 14v4h40v-4L24 4z"/>
+                            <rect x="8" y="18" width="6" height="22"/>
+                            <rect x="21" y="18" width="6" height="22"/>
+                            <rect x="34" y="18" width="6" height="22"/>
+                            <path d="M4 40h40v4H4z"/>
+                        </svg>
+                    </div>
+                </div>
+                <div class="service-card-content">
+                    <h3>Government Facilities</h3>
+                    <p>Comprehensive equipment solutions for federal, state, and local government operations.</p>
+                    <a href="/industries/government/" class="service-link">Learn More</a>
+                </div>
+            </div>
+            <div class="service-card">
+                <div class="service-card-image">
+                    <img src="{% static 'images/industry-parks.jpg' %}" alt="National Parks Service" loading="lazy" onerror="this.parentElement.style.display='none'" />
+                    <div class="service-icon">
+                        <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M4 40h40"/>
+                            <path d="M12 40V28l12-16 12 16v12"/>
+                            <path d="M20 40V32h8v8"/>
+                            <circle cx="36" cy="12" r="4"/>
+                            <path d="M8 24c4-2 6-6 6-10"/>
+                            <path d="M40 24c-4-2-6-6-6-10"/>
+                        </svg>
+                    </div>
+                </div>
+                <div class="service-card-content">
+                    <h3>National Parks Service</h3>
+                    <p>Specialized equipment solutions for parks maintenance, conservation, and visitor services.</p>
+                    <a href="/industries/national-parks/" class="service-link">Learn More</a>
+                </div>
+            </div>
+            <div class="service-card">
+                <div class="service-card-image">
+                    <img src="{% static 'images/industry-energy.jpg' %}" alt="Energy & Oil/Gas" loading="lazy" onerror="this.parentElement.style.display='none'" />
+                    <div class="service-icon">
+                        <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M24 4v8"/>
+                            <path d="M24 36v8"/>
+                            <path d="M12 12l5.66 5.66"/>
+                            <path d="M30.34 30.34L36 36"/>
+                            <path d="M4 24h8"/>
+                            <path d="M36 24h8"/>
+                            <path d="M12 36l5.66-5.66"/>
+                            <path d="M30.34 17.66L36 12"/>
+                            <circle cx="24" cy="24" r="8"/>
+                        </svg>
+                    </div>
+                </div>
+                <div class="service-card-content">
+                    <h3>Energy & Oil/Gas</h3>
+                    <p>Industrial-grade equipment for energy production, distribution, and safety operations.</p>
+                    <a href="/industries/energy/" class="service-link">Learn More</a>
+                </div>
+            </div>
+            <div class="service-card">
+                <div class="service-card-image">
+                    <img src="{% static 'images/industry-municipal.jpg' %}" alt="Municipal Services" loading="lazy" onerror="this.parentElement.style.display='none'" />
+                    <div class="service-icon">
+                        <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="4" y="24" width="10" height="16"/>
+                            <rect x="19" y="16" width="10" height="24"/>
+                            <rect x="34" y="8" width="10" height="32"/>
+                            <path d="M4 44h40"/>
+                        </svg>
+                    </div>
+                </div>
+                <div class="service-card-content">
+                    <h3>Municipal Services</h3>
+                    <p>Complete equipment solutions for cities, counties, and local utility services.</p>
+                    <a href="/industries/municipal/" class="service-link">Learn More</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Manufacturers Section -->
+{% get_manufacturers as manufacturers %}
+{% if manufacturers %}
+<section class="manufacturers-section">
+    <div class="container">
+        <div class="section-header">
+            <p class="section-title">Our Partners</p>
+            <h2 class="section-heading">Trusted Manufacturer Partners</h2>
+            <p class="section-intro">We partner with industry-leading manufacturers to deliver quality equipment solutions.</p>
+        </div>
+        <div class="manufacturers-grid">
+            {% for manufacturer in manufacturers %}
+            <div class="manufacturer-card">
+                {% if manufacturer.logo %}
+                <div class="manufacturer-logo">
+                    <img src="{{ manufacturer.logo.file.url }}" alt="{{ manufacturer.name }}" loading="lazy" />
+                </div>
+                {% else %}
+                <div class="manufacturer-name">
+                    <h3>{{ manufacturer.name }}</h3>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% endif %}
+
+<!-- Why Choose Us -->
+<section class="why-choose-us section-alt">
+    <div class="container">
+        <div class="section-header">
+            <p class="section-title">Why Us</p>
+            <h2 class="section-heading">Why Choose Malla Technical Services</h2>
+        </div>
+        <div class="features-grid">
+            <div class="feature">
+                <div class="feature-icon">
+                    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="16" cy="16" r="14"/>
+                        <path d="M16 8v8l5 3"/>
+                    </svg>
+                </div>
+                <h3>20+ Years Experience</h3>
+                <p>Over two decades of proven supply chain engineering expertise delivering results.</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">
+                    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M6 4h20v24l-10-6-10 6V4z"/>
+                    </svg>
+                </div>
+                <h3>Equipment Specialists</h3>
+                <p>We specialize exclusively in equipment supply—no installation, just quality products delivered on time.</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">
+                    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M16 2l4 8h8l-6 5 2 9-8-5-8 5 2-9-6-5h8z"/>
+                    </svg>
+                </div>
+                <h3>Government Expertise</h3>
+                <p>Deep understanding of government contracting processes and compliance requirements.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA Section -->
+<section class="cta-section cta-section--with-image" style="background-image: url('{% static 'images/cta-background.jpg' %}')">
+    <div class="container">
+        <h2>Ready to Start Your Next Project?</h2>
+        <p>Contact our supply chain engineers to discuss your equipment needs.</p>
+        <a href="/contact/" class="btn btn-accent btn-lg">Request a Quote</a>
+    </div>
+</section>
+
+{% endblock content %}

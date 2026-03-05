@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Products Catalog - Government Parts & Equipment{% endblock %}
+
+{% block content %}
+
+<section class="page-header page-header--with-image" style="background-image: url('{% static 'images/hero-nsn.jpg' %}')">
+    <div class="container">
+        <h1>Products Catalog</h1>
+        <p class="page-intro">Government-spec parts and equipment with verified manufacturers, part numbers, and pricing.</p>
+    </div>
+</section>
+
+<section class="page-content">
+    <div class="container">
+
+        <!-- Catalog Sub-navigation -->
+        <nav class="catalog-subnav">
+            <a href="{% url 'product_list' %}" class="catalog-subnav-link active">Products</a>
+            <a href="{% url 'manufacturer_list' %}" class="catalog-subnav-link">Manufacturers</a>
+            <a href="{% url 'nsn_search' %}" class="catalog-subnav-link">NSN Lookup</a>
+        </nav>
+
+        <!-- Search Form -->
+        <div class="nsn-search-box">
+            <form action="{% url 'product_list' %}" method="get" class="nsn-search-form">
+                <div class="search-input-wrapper">
+                    <input type="text"
+                           name="q"
+                           value="{{ query }}"
+                           placeholder="Search by product name, NSN, part number, or manufacturer..."
+                           class="nsn-search-input"
+                           autocomplete="off" />
+                    <button type="submit" class="btn btn-primary nsn-search-btn">Search</button>
+                </div>
+            </form>
+        </div>
+
+        {% if query %}
+        <div class="nsn-results">
+            <div class="results-header">
+                <h2>Search Results for "{{ query }}"</h2>
+                <p class="results-count">{{ total_count }} product{{ total_count|pluralize }} found</p>
+            </div>
+        {% endif %}
+
+            {% if products %}
+            <div class="nsn-results-list">
+                {% for item in products %}
+                <div class="nsn-result-card">
+                    <div class="nsn-result-header">
+                        <a href="{% url 'product_detail' item.manufacturer.slug item.part_number_slug %}" class="nsn-link">{{ item.catalog_item.nsn }}</a>
+                        {% if item.catalog_item.fsc %}
+                        <span class="fsc-badge">FSC {{ item.catalog_item.fsc.code }}</span>
+                        {% endif %}
+                    </div>
+                    <h3 class="nsn-item-name">
+                        {{ item.display_name }}
+                        {% if item.catalog_item.pricing.unit_price %}
+                        <span class="nsn-price" style="float: right; font-size: 1.1rem;">${{ item.catalog_item.pricing.unit_price|floatformat:2 }}</span>
+                        {% endif %}
+                    </h3>
+                    <p class="nsn-description">
+                        Manufacturer: <strong><a href="{% url 'manufacturer_detail' item.manufacturer.slug %}">{{ item.manufacturer.company_name|default:item.manufacturer.cage_code }}</a></strong>
+                        {% if item.part_number %} | Part No: <strong>{{ item.part_number }}</strong>{% endif %}
+                        {% if item.catalog_item.unit_of_issue %} | Unit: {{ item.catalog_item.unit_of_issue }}{% endif %}
+                    </p>
+                    <a href="{% url 'product_detail' item.manufacturer.slug item.part_number_slug %}" class="btn btn-secondary btn-sm">View Details</a>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Pagination -->
+            {% if products.has_other_pages %}
+            <nav class="pagination-nav">
+                <ul class="pagination">
+                    {% if products.has_previous %}
+                    <li><a href="?{% if query %}q={{ query }}&{% endif %}page={{ products.previous_page_number }}">&laquo; Previous</a></li>
+                    {% endif %}
+
+                    <li class="page-info">Page {{ products.number }} of {{ products.paginator.num_pages }}</li>
+
+                    {% if products.has_next %}
+                    <li><a href="?{% if query %}q={{ query }}&{% endif %}page={{ products.next_page_number }}">Next &raquo;</a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+
+            {% else %}
+            <div class="no-results">
+                {% if query %}
+                <p>No products found matching "{{ query }}". Try a different search term.</p>
+                {% else %}
+                <p>No products available yet. Check back soon.</p>
+                {% endif %}
+            </div>
+            {% endif %}
+
+        {% if query %}
+        </div>
+        {% endif %}
+
+        <!-- CTA Box -->
+        <div class="nsn-cta-box">
+            <h3>Need a Specific Part?</h3>
+            <p>Can't find what you're looking for? Our procurement team can source any government-spec part or NSN item.</p>
+            <a href="/contact/" class="btn btn-accent btn-lg">Request a Quote</a>
+        </div>
+
+    </div>
+</section>
+
+{% endblock content %}

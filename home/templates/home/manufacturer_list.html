@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Manufacturers - Government Parts Suppliers{% endblock %}
+
+{% block content %}
+
+<section class="page-header page-header--with-image" style="background-image: url('{% static 'images/hero-nsn.jpg' %}')">
+    <div class="container">
+        <h1>Manufacturers</h1>
+        <p class="page-intro">Verified manufacturers and suppliers of government-spec parts and equipment.</p>
+    </div>
+</section>
+
+<section class="page-content">
+    <div class="container">
+
+        <!-- Catalog Sub-navigation -->
+        <nav class="catalog-subnav">
+            <a href="{% url 'product_list' %}" class="catalog-subnav-link">Products</a>
+            <a href="{% url 'manufacturer_list' %}" class="catalog-subnav-link active">Manufacturers</a>
+            <a href="{% url 'nsn_search' %}" class="catalog-subnav-link">NSN Lookup</a>
+        </nav>
+
+        <!-- Search Form -->
+        <div class="nsn-search-box">
+            <form action="{% url 'manufacturer_list' %}" method="get" class="nsn-search-form">
+                <div class="search-input-wrapper">
+                    <input type="text"
+                           name="q"
+                           value="{{ query }}"
+                           placeholder="Search by company name or CAGE code..."
+                           class="nsn-search-input"
+                           autocomplete="off" />
+                    <button type="submit" class="btn btn-primary nsn-search-btn">Search</button>
+                </div>
+            </form>
+        </div>
+
+        {% if query %}
+        <div class="nsn-results">
+            <div class="results-header">
+                <h2>Search Results for "{{ query }}"</h2>
+                <p class="results-count">{{ total_count }} manufacturer{{ total_count|pluralize }} found</p>
+            </div>
+        {% endif %}
+
+            {% if manufacturers %}
+            <div class="nsn-results-list">
+                {% for mfr in manufacturers %}
+                <div class="nsn-result-card">
+                    <div class="nsn-result-header">
+                        <a href="{% url 'manufacturer_detail' mfr.slug %}" class="nsn-link">{{ mfr.company_name|default:mfr.cage_code }}</a>
+                        {% if mfr.cage_code %}
+                        <span class="fsc-badge">CAGE {{ mfr.cage_code }}</span>
+                        {% endif %}
+                    </div>
+                    <p class="nsn-description">
+                        {% if mfr.city or mfr.state or mfr.country %}
+                        {{ mfr.city }}{% if mfr.city and mfr.state %}, {% endif %}{{ mfr.state }}{% if mfr.country %}, {{ mfr.country }}{% endif %}
+                        | {% endif %}
+                        {{ mfr.product_count }} product{{ mfr.product_count|pluralize }}
+                    </p>
+                    <a href="{% url 'manufacturer_detail' mfr.slug %}" class="btn btn-secondary btn-sm">View Products</a>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Pagination -->
+            {% if manufacturers.has_other_pages %}
+            <nav class="pagination-nav">
+                <ul class="pagination">
+                    {% if manufacturers.has_previous %}
+                    <li><a href="?{% if query %}q={{ query }}&{% endif %}page={{ manufacturers.previous_page_number }}">&laquo; Previous</a></li>
+                    {% endif %}
+                    <li class="page-info">Page {{ manufacturers.number }} of {{ manufacturers.paginator.num_pages }}</li>
+                    {% if manufacturers.has_next %}
+                    <li><a href="?{% if query %}q={{ query }}&{% endif %}page={{ manufacturers.next_page_number }}">Next &raquo;</a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+
+            {% else %}
+            <div class="no-results">
+                {% if query %}
+                <p>No manufacturers found matching "{{ query }}". Try a different search term.</p>
+                {% else %}
+                <p>No manufacturers available yet. Check back soon.</p>
+                {% endif %}
+            </div>
+            {% endif %}
+
+        {% if query %}
+        </div>
+        {% endif %}
+
+        <!-- CTA Box -->
+        <div class="nsn-cta-box">
+            <h3>Looking for a Specific Manufacturer?</h3>
+            <p>Our procurement team can source parts from any government-approved manufacturer.</p>
+            <a href="/contact/" class="btn btn-accent btn-lg">Request a Quote</a>
+        </div>
+
+    </div>
+</section>
+
+{% endblock content %}

@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% load static wagtailcore_tags wagtailimages_tags %}
+
+{% block body_class %}template-standardpage{% endblock %}
+
+{% block content %}
+
+<section class="page-header{% if page.hero_image %} page-header--with-image{% endif %}"{% if page.hero_image %} style="background-image: url('{% image page.hero_image width-1920 as hero_bg %}{{ hero_bg.url }}')"{% endif %}>
+    <div class="container">
+        <h1>{{ page.title }}</h1>
+        {% if page.intro %}
+        <p class="page-intro">{{ page.intro }}</p>
+        {% endif %}
+    </div>
+</section>
+
+<section class="page-content">
+    <div class="container">
+        <div class="content-grid">
+            <div class="content-main">
+                <div class="content-wrapper">
+                    {{ page.body|richtext }}
+                </div>
+            </div>
+
+            <aside class="content-sidebar">
+                <div class="sidebar-cta-card">
+                    <h3>Get in Touch</h3>
+                    <p>Have questions? Our team is ready to help with your equipment and procurement needs.</p>
+                    <a href="/contact/" class="btn btn-accent btn-block">Contact Us</a>
+                    <div class="sidebar-phone">
+                        <p>Or call us directly:</p>
+                        <a href="tel:+18557062552" class="phone-link">+1 855 706 2552</a>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </div>
+</section>
+
+{% endblock content %}

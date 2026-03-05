@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+*.egg
+
+# Virtual environment
+venv/
+
+# Data & imports (large files)
+imports/
+
+# Django
+*.sqlite3
+db.sqlite3
+media/
+static/
+
+# Logs
+logs/
+*.log
+
+# Secrets
+.env
+*.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Unix socket
+*.sock
+
+# Large/temporary data files
+*.csv
+*.xlsx
+*.zip
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo

@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}NSN Lookup - National Stock Number Search{% endblock %}
+
+{% block content %}
+
+<section class="page-header page-header--with-image" style="background-image: url('{% static 'images/hero-nsn.jpg' %}')">
+    <div class="container">
+        <h1>NSN Lookup</h1>
+        <p class="page-intro">Search our database of National Stock Numbers (NSN) for government and military parts.</p>
+    </div>
+</section>
+
+<section class="page-content">
+    <div class="container">
+
+        <!-- Search Form -->
+        <div class="nsn-search-box">
+            <form action="{% url 'nsn_search' %}" method="get" class="nsn-search-form">
+                <div class="search-input-wrapper">
+                    <input type="text"
+                           name="q"
+                           value="{{ query }}"
+                           placeholder="Search by NSN, NIIN, part number, or item name..."
+                           class="nsn-search-input"
+                           autocomplete="off" />
+                    <button type="submit" class="btn btn-primary nsn-search-btn">Search</button>
+                </div>
+            </form>
+        </div>
+
+        {% if query %}
+        <!-- Search Results -->
+        <div class="nsn-results">
+            <div class="results-header">
+                <h2>Search Results for "{{ query }}"</h2>
+                <p class="results-count">{{ total_count }} item{{ total_count|pluralize }} found</p>
+            </div>
+
+            {% if items %}
+            <div class="nsn-results-list">
+                {% for item in items %}
+                <div class="nsn-result-card">
+                    <div class="nsn-result-header">
+                        <a href="{% url 'nsn_detail' item.nsn %}" class="nsn-link">{{ item.nsn }}</a>
+                        {% if item.fsc %}
+                        <span class="fsc-badge">FSC {{ item.fsc.code }}</span>
+                        {% endif %}
+                    </div>
+                    <h3 class="nsn-item-name">{{ item.item_name }}</h3>
+                    {% if item.description %}
+                    <p class="nsn-description">{{ item.description|truncatewords:30 }}</p>
+                    {% endif %}
+                    <div class="nsn-result-meta">
+                        {% if item.price %}
+                        <span class="nsn-price">{{ item.formatted_price }}</span>
+                        {% endif %}
+                        {% if item.unit_of_issue %}
+                        <span class="nsn-unit">Unit: {{ item.unit_of_issue }}</span>
+                        {% endif %}
+                    </div>
+                    <a href="{% url 'nsn_detail' item.nsn %}" class="btn btn-secondary btn-sm">View Details</a>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Pagination -->
+            {% if items.has_other_pages %}
+            <nav class="pagination-nav">
+                <ul class="pagination">
+                    {% if items.has_previous %}
+                    <li><a href="?q={{ query }}&page={{ items.previous_page_number }}">&laquo; Previous</a></li>
+                    {% endif %}
+
+                    <li class="page-info">Page {{ items.number }} of {{ items.paginator.num_pages }}</li>
+
+                    {% if items.has_next %}
+                    <li><a href="?q={{ query }}&page={{ items.next_page_number }}">Next &raquo;</a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+
+            {% else %}
+            <div class="no-results">
+                <p>No items found matching "{{ query }}". Try a different search term.</p>
+            </div>
+            {% endif %}
+        </div>
+
+        {% else %}
+        <!-- Browse by Category -->
+        <div class="nsn-browse">
+            <h2>Browse by Federal Supply Class (FSC)</h2>
+            <div class="fsc-grid">
+                {% for fsc in fsc_list %}
+                <a href="{% url 'nsn_fsc_list' fsc.code %}" class="fsc-card">
+                    <span class="fsc-code">{{ fsc.code }}</span>
+                    <span class="fsc-name">{{ fsc.name }}</span>
+                    <span class="fsc-count">{{ fsc.item_count }} items</span>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- CTA Box -->
+        <div class="nsn-cta-box">
+            <h3>Need a Quote?</h3>
+            <p>Can't find what you're looking for or need pricing information? Our team can help source any NSN item.</p>
+            <a href="/contact/" class="btn btn-accent btn-lg">Request a Quote</a>
+        </div>
+
+    </div>
+</section>
+
+{% endblock content %}

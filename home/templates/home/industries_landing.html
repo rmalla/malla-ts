@@ -1,0 +1,374 @@
+{% extends "base.html" %}
+{% load static wagtailcore_tags wagtailimages_tags %}
+
+{% block body_class %}template-industries-landing{% endblock %}
+
+{% block content %}
+
+<!-- Hero -->
+<section class="page-header page-header--with-image" style="background-image: url('{% static 'images/hero-industries.jpg' %}')">
+    <div class="container">
+        <p class="page-header-label">Industries We Serve</p>
+        <h1>Procurement Solutions for Every Sector</h1>
+        <p class="page-intro">From federal agencies to municipal utilities, we deliver equipment procurement expertise to the organizations that power America's infrastructure.</p>
+    </div>
+</section>
+
+<!-- Stats -->
+<section class="about-stats">
+    <div class="container">
+        <div class="about-stats-grid">
+            <div class="about-stat">
+                <span class="about-stat-number">4</span>
+                <span class="about-stat-label">Core Sectors</span>
+            </div>
+            <div class="about-stat">
+                <span class="about-stat-number">20+</span>
+                <span class="about-stat-label">Agency Types</span>
+            </div>
+            <div class="about-stat">
+                <span class="about-stat-number">GSA</span>
+                <span class="about-stat-label">Schedule Holder</span>
+            </div>
+            <div class="about-stat">
+                <span class="about-stat-number">50</span>
+                <span class="about-stat-label">States Covered</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Core Industry Cards -->
+<section class="ind-core-sectors">
+    <div class="container">
+        <div class="section-header">
+            <p class="section-title">Core Sectors</p>
+            <h2 class="section-heading">Four Industries, One Mission</h2>
+            <p class="section-intro">Each industry has unique procurement requirements. Our engineers understand the regulations, specifications, and compliance standards specific to your sector.</p>
+        </div>
+        <div class="ind-sectors-grid">
+            <a href="/industries/government/" class="ind-sector-card">
+                <div class="ind-sector-image">
+                    <img src="{% static 'images/industry-government.jpg' %}" alt="Government Facilities" loading="lazy" />
+                    <div class="ind-sector-overlay">
+                        <span class="btn btn-white btn-sm">Learn More</span>
+                    </div>
+                </div>
+                <div class="ind-sector-content">
+                    <h3>Government Facilities</h3>
+                    <p>Federal, state, and local government buildings, military installations, and administrative campuses.</p>
+                    <ul class="ind-sector-tags">
+                        <li>FAR/DFAR Compliant</li>
+                        <li>GSA Schedule</li>
+                        <li>SAM Registered</li>
+                    </ul>
+                </div>
+            </a>
+            <a href="/industries/national-parks/" class="ind-sector-card">
+                <div class="ind-sector-image">
+                    <img src="{% static 'images/industry-parks.jpg' %}" alt="National Parks" loading="lazy" />
+                    <div class="ind-sector-overlay">
+                        <span class="btn btn-white btn-sm">Learn More</span>
+                    </div>
+                </div>
+                <div class="ind-sector-content">
+                    <h3>National Parks Service</h3>
+                    <p>Equipment for conservation, park maintenance, visitor facilities, and wilderness management operations.</p>
+                    <ul class="ind-sector-tags">
+                        <li>NPS Approved</li>
+                        <li>Remote Delivery</li>
+                        <li>Rugged Equipment</li>
+                    </ul>
+                </div>
+            </a>
+            <a href="/industries/energy/" class="ind-sector-card">
+                <div class="ind-sector-image">
+                    <img src="{% static 'images/industry-energy.jpg' %}" alt="Energy & Oil/Gas" loading="lazy" />
+                    <div class="ind-sector-overlay">
+                        <span class="btn btn-white btn-sm">Learn More</span>
+                    </div>
+                </div>
+                <div class="ind-sector-content">
+                    <h3>Energy & Oil/Gas</h3>
+                    <p>Safety-critical equipment for energy production, pipeline operations, refineries, and power generation facilities.</p>
+                    <ul class="ind-sector-tags">
+                        <li>Safety Certified</li>
+                        <li>Industrial Grade</li>
+                        <li>Hazard Compliant</li>
+                    </ul>
+                </div>
+            </a>
+            <a href="/industries/municipal/" class="ind-sector-card">
+                <div class="ind-sector-image">
+                    <img src="{% static 'images/industry-municipal.jpg' %}" alt="Municipal Services" loading="lazy" />
+                    <div class="ind-sector-overlay">
+                        <span class="btn btn-white btn-sm">Learn More</span>
+                    </div>
+                </div>
+                <div class="ind-sector-content">
+                    <h3>Municipal Services</h3>
+                    <p>Water treatment, public works, sanitation, utilities, and city infrastructure equipment procurement.</p>
+                    <ul class="ind-sector-tags">
+                        <li>Bid Compliant</li>
+                        <li>Budget Friendly</li>
+                        <li>Quick Turnaround</li>
+                    </ul>
+                </div>
+            </a>
+        </div>
+    </div>
+</section>
+
+<!-- Government Agencies We Serve -->
+<section class="ind-agencies section-alt">
+    <div class="container">
+        <div class="section-header">
+            <p class="section-title">Government Agencies</p>
+            <h2 class="section-heading">Agencies We Support</h2>
+            <p class="section-intro">We provide equipment procurement services to a wide range of federal, state, and local government organizations.</p>
+        </div>
+
+        <!-- Federal Agencies -->
+        <div class="ind-agency-group">
+            <h3 class="ind-agency-group-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2L2 7v2h20V7L12 2z"/><rect x="4" y="9" width="3" height="10"/><rect x="10.5" y="9" width="3" height="10"/><rect x="17" y="9" width="3" height="10"/><path d="M2 19h20v2H2z"/></svg>
+                Federal Agencies
+            </h3>
+            <div class="ind-agency-grid">
+                <div class="ind-agency-card">
+                    <h4>Department of Defense (DoD)</h4>
+                    <p>Military installations, bases, and defense logistics across all branches.</p>
+                </div>
+                <div class="ind-agency-card">
+                    <h4>Department of the Interior (DOI)</h4>
+                    <p>National parks, wildlife refuges, Bureau of Land Management, and Indian Affairs.</p>
+                </div>
+                <div class="ind-agency-card">
+                    <h4>General Services Administration (GSA)</h4>
+                    <p>Federal building management, fleet, and government-wide procurement support.</p>
+                </div>
+                <div class="ind-agency-card">
+                    <h4>Department of Energy (DOE)</h4>
+                    <p>National laboratories, nuclear facilities, and energy research operations.</p>
+                </div>
+                <div class="ind-agency-card">
+                    <h4>Department of Veterans Affairs (VA)</h4>
+                    <p>VA hospitals, medical centers, and veteran care facilities nationwide.</p>
+                </div>
+                <div class="ind-agency-card">
+                    <h4>Department of Homeland Security (DHS)</h4>
+                    <p>FEMA, CBP, Coast Guard, and TSA facility equipment needs.</p>
+                </div>
+                <div class="ind-agency-card">
+                    <h4>Department of Agriculture (USDA)</h4>
+                    <p>Forest Service, food safety, and agricultural research facilities.</p>
+                </div>
+                <div class="ind-agency-card">
+                    <h4>U.S. Army Corps of Engineers</h4>
+                    <p>Infrastructure, waterway management, and civil works equipment.</p>
+                </div>
+                <div class="ind-agency-card">
+                    <h4>Environmental Protection Agency (EPA)</h4>
+                    <p>Environmental monitoring, cleanup operations, and laboratory equipment.</p>
+                </div>
+                <div class="ind-agency-card">
+                    <h4>NASA</h4>
+                    <p>Space centers, research facilities, and testing infrastructure equipment.</p>
+                </div>
+                <div class="ind-agency-card">
+                    <h4>Federal Bureau of Prisons (BOP)</h4>
+                    <p>Correctional facility equipment, maintenance, and infrastructure systems.</p>
+                </div>
+                <div class="ind-agency-card">
+                    <h4>Department of Justice (DOJ)</h4>
+                    <p>Federal law enforcement, court facilities, and administrative buildings.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- State & Local -->
+        <div class="ind-agency-group">
+            <h3 class="ind-agency-group-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 3v18"/></svg>
+                State & Local Government
+            </h3>
+            <div class="ind-agency-grid">
+                <div class="ind-agency-card">
+                    <h4>State Departments of Transportation</h4>
+                    <p>Highway maintenance, road construction, and fleet management equipment.</p>
+                </div>
+                <div class="ind-agency-card">
+                    <h4>Public School Districts</h4>
+                    <p>Facility maintenance, HVAC systems, and campus infrastructure equipment.</p>
+                </div>
+                <div class="ind-agency-card">
+                    <h4>Water & Sewer Authorities</h4>
+                    <p>Treatment plants, pumping stations, and distribution system equipment.</p>
+                </div>
+                <div class="ind-agency-card">
+                    <h4>Public Works Departments</h4>
+                    <p>City infrastructure, fleet vehicles, and maintenance facility equipment.</p>
+                </div>
+                <div class="ind-agency-card">
+                    <h4>Fire Departments & EMS</h4>
+                    <p>Station equipment, apparatus components, and emergency response gear.</p>
+                </div>
+                <div class="ind-agency-card">
+                    <h4>Public Hospitals & Health</h4>
+                    <p>County medical facilities, clinics, and public health infrastructure.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Energy Sector -->
+        <div class="ind-agency-group">
+            <h3 class="ind-agency-group-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                Energy & Utilities
+            </h3>
+            <div class="ind-agency-grid">
+                <div class="ind-agency-card">
+                    <h4>Oil & Gas Operators</h4>
+                    <p>Upstream, midstream, and downstream equipment for production and refining.</p>
+                </div>
+                <div class="ind-agency-card">
+                    <h4>Electric Utilities</h4>
+                    <p>Power generation, transmission, and distribution infrastructure equipment.</p>
+                </div>
+                <div class="ind-agency-card">
+                    <h4>Renewable Energy</h4>
+                    <p>Solar, wind, and hydroelectric facility equipment and maintenance supplies.</p>
+                </div>
+                <div class="ind-agency-card">
+                    <h4>Pipeline Companies</h4>
+                    <p>Safety systems, monitoring equipment, and pipeline maintenance tools.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Equipment Categories -->
+<section class="ind-equipment">
+    <div class="container">
+        <div class="section-header">
+            <p class="section-title">What We Procure</p>
+            <h2 class="section-heading">Equipment Categories</h2>
+            <p class="section-intro">Across all industries, we source and deliver a comprehensive range of equipment categories.</p>
+        </div>
+        <div class="ind-equip-grid">
+            <div class="ind-equip-item">
+                <div class="ind-equip-icon">
+                    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="18" width="24" height="10" rx="2"/><path d="M8 18v-8a4 4 0 014-4h8a4 4 0 014 4v8"/><circle cx="10" cy="23" r="2"/><circle cx="22" cy="23" r="2"/></svg>
+                </div>
+                <h4>HVAC Systems</h4>
+                <p>Heating, ventilation, air conditioning, and climate control equipment.</p>
+            </div>
+            <div class="ind-equip-item">
+                <div class="ind-equip-icon">
+                    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 4v24"/><path d="M4 16h24"/><circle cx="16" cy="16" r="12"/></svg>
+                </div>
+                <h4>Generators & Power</h4>
+                <p>Backup generators, UPS systems, and power distribution equipment.</p>
+            </div>
+            <div class="ind-equip-item">
+                <div class="ind-equip-icon">
+                    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 28V12l10-8 10 8v16H6z"/><rect x="12" y="18" width="8" height="10"/></svg>
+                </div>
+                <h4>Facility Maintenance</h4>
+                <p>Building systems, plumbing, electrical, and general maintenance equipment.</p>
+            </div>
+            <div class="ind-equip-item">
+                <div class="ind-equip-icon">
+                    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 28h24"/><path d="M8 28V16h6v12"/><path d="M18 28V10h6v18"/></svg>
+                </div>
+                <h4>Water & Wastewater</h4>
+                <p>Pumps, treatment systems, filtration, and water management equipment.</p>
+            </div>
+            <div class="ind-equip-item">
+                <div class="ind-equip-icon">
+                    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 4l3 6h7l-5 4 2 7-7-4-7 4 2-7-5-4h7z"/></svg>
+                </div>
+                <h4>Safety & Compliance</h4>
+                <p>Fire suppression, safety systems, alarms, and regulatory compliance equipment.</p>
+            </div>
+            <div class="ind-equip-item">
+                <div class="ind-equip-icon">
+                    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="4" width="24" height="24" rx="3"/><path d="M4 12h24"/><path d="M12 12v16"/></svg>
+                </div>
+                <h4>Fleet & Vehicles</h4>
+                <p>Vehicle components, fleet maintenance equipment, and specialized vehicles.</p>
+            </div>
+            <div class="ind-equip-item">
+                <div class="ind-equip-icon">
+                    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="16" cy="16" r="12"/><path d="M16 10v6l4 2"/></svg>
+                </div>
+                <h4>Industrial Controls</h4>
+                <p>SCADA, PLCs, automation systems, and process control equipment.</p>
+            </div>
+            <div class="ind-equip-item">
+                <div class="ind-equip-icon">
+                    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="6" y="6" width="20" height="14" rx="2"/><path d="M10 24h12"/><path d="M16 20v4"/></svg>
+                </div>
+                <h4>IT & Communications</h4>
+                <p>Network infrastructure, communications systems, and technology equipment.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Why Choose Us for Government -->
+<section class="ind-why section-alt">
+    <div class="container">
+        <div class="about-diff-grid">
+            <div class="about-diff-content">
+                <p class="section-title">Why Work With Us</p>
+                <h2>Built for Government Procurement</h2>
+                <p>Government procurement is complex. FAR clauses, DFAR supplements, GSA schedules, sole-source justifications, set-aside requirements — we navigate all of it so you don't have to.</p>
+                <ul class="about-diff-list">
+                    <li>
+                        <svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+                        GSA Schedule contract holder
+                    </li>
+                    <li>
+                        <svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+                        Active SAM registration
+                    </li>
+                    <li>
+                        <svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+                        FAR/DFAR compliance expertise
+                    </li>
+                    <li>
+                        <svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+                        Complete documentation and audit trails
+                    </li>
+                    <li>
+                        <svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+                        Competitive pricing through volume relationships
+                    </li>
+                    <li>
+                        <svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+                        20+ years serving the public sector
+                    </li>
+                </ul>
+            </div>
+            <div class="about-diff-image">
+                <img src="{% static 'images/about-team.jpg' %}" alt="Procurement team" loading="lazy" />
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section cta-section--with-image" style="background-image: url('{% static 'images/cta-background.jpg' %}')">
+    <div class="container">
+        <h2>Need Equipment for Your Agency?</h2>
+        <p>Tell us what you need. Our procurement engineers will handle the rest.</p>
+        <div class="hero-actions">
+            <a href="/contact/" class="btn btn-accent btn-lg">Request a Quote</a>
+            <a href="/nsn/" class="btn btn-white btn-lg">Search NSN Database</a>
+        </div>
+    </div>
+</section>
+
+{% endblock content %}

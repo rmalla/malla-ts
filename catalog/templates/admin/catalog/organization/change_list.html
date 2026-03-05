@@ -1,0 +1,14 @@
+{% extends "admin/change_list.html" %}
+{% load i18n %}
+
+{% block object-tools-items %}
+  <li>
+    <form action="{% url 'admin:catalog_organization_apply_name_filters' %}" method="post" style="display:inline">
+      {% csrf_token %}
+      <button type="submit" class="button" style="cursor:pointer">
+        Apply Name Filters
+      </button>
+    </form>
+  </li>
+  {{ block.super }}
+{% endblock %}

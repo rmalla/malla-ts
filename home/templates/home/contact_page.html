@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% load static wagtailcore_tags wagtailimages_tags %}
+
+{% block body_class %}template-contact{% endblock %}
+
+{% block content %}
+
+<section class="page-header{% if page.hero_image %} page-header--with-image{% endif %}"{% if page.hero_image %} style="background-image: url('{% image page.hero_image width-1920 as hero_bg %}{{ hero_bg.url }}')"{% endif %}>
+    <div class="container">
+        <h1>{{ page.title }}</h1>
+        <p class="page-intro">{{ page.intro }}</p>
+    </div>
+</section>
+
+<section class="page-content">
+    <div class="container">
+        <div class="contact-grid">
+            <div class="contact-info">
+                <h2>Get in Touch</h2>
+
+                {% if page.body %}
+                <div class="contact-description">
+                    {{ page.body|richtext }}
+                </div>
+                {% endif %}
+
+                <div class="contact-details">
+                    {% if page.phone %}
+                    <div class="contact-item">
+                        <h3>Phone</h3>
+                        <p><a href="tel:{{ page.phone }}">{{ page.phone }}</a></p>
+                    </div>
+                    {% endif %}
+
+                    {% if page.email %}
+                    <div class="contact-item">
+                        <h3>Email</h3>
+                        <p><a href="mailto:{{ page.email }}">{{ page.email }}</a></p>
+                    </div>
+                    {% endif %}
+
+                    {% if page.address %}
+                    <div class="contact-item">
+                        <h3>Address</h3>
+                        {{ page.address|richtext }}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="contact-form-wrapper">
+                <h2>Send Us a Message</h2>
+
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+
+                <form class="contact-form" action="/contact/submit/" method="POST">
+                    {% csrf_token %}
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="name">Name *</label>
+                            <input type="text" id="name" name="name" required />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="email">Email *</label>
+                            <input type="email" id="email" name="email" required />
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="phone">Phone</label>
+                            <input type="tel" id="phone" name="phone" />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="organization">Company / Organization</label>
+                            <input type="text" id="organization" name="organization" />
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="subject">Subject</label>
+                        <select id="subject" name="subject">
+                            <option value="">Select a subject...</option>
+                            <option value="General Inquiry">General Inquiry</option>
+                            <option value="Equipment Quote">Equipment Quote Request</option>
+                            <option value="NSN Request">NSN Item Request</option>
+                            <option value="Partnership">Partnership Opportunity</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="message">Message *</label>
+                        <textarea id="message" name="message" rows="6" required></textarea>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Send Message</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</section>
+
+{% endblock content %}

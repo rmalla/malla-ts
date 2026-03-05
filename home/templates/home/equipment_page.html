@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% load static wagtailcore_tags wagtailimages_tags %}
+
+{% block body_class %}template-equipment{% endblock %}
+
+{% block extra_structured_data %}
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "Service",
+    "name": "{{ page.title }}",
+    "description": "{{ page.subtitle|default:page.title }} - Equipment procurement and supply services from Malla Technical Services.",
+    "provider": {
+        "@type": "Organization",
+        "name": "Malla Technical Services",
+        "url": "https://malla-ts.com"
+    },
+    "serviceType": "Equipment Procurement",
+    "areaServed": "US"
+}
+</script>
+{% endblock %}
+
+{% block content %}
+
+<section class="page-header{% if page.hero_image %} page-header--with-image{% endif %}"{% if page.hero_image %} style="background-image: url('{% image page.hero_image width-1920 as hero_bg %}{{ hero_bg.url }}')"{% endif %}>
+    <div class="container">
+        <h1>{{ page.title }}</h1>
+        {% if page.subtitle %}
+        <p class="page-intro">{{ page.subtitle }}</p>
+        {% endif %}
+    </div>
+</section>
+
+<section class="page-content">
+    <div class="container">
+        <div class="content-grid">
+            <div class="content-main">
+                <div class="content-section">
+                    <h2>Description</h2>
+                    {{ page.description|richtext }}
+                </div>
+
+                {% if page.specifications %}
+                <div class="content-section">
+                    <h2>Specifications</h2>
+                    {{ page.specifications|richtext }}
+                </div>
+                {% endif %}
+
+                {% if page.applications %}
+                <div class="content-section">
+                    <h2>Applications</h2>
+                    {{ page.applications|richtext }}
+                </div>
+                {% endif %}
+
+                {% if page.industries %}
+                <div class="content-section">
+                    <h2>Industries Served</h2>
+                    {{ page.industries|richtext }}
+                </div>
+                {% endif %}
+            </div>
+
+            <aside class="content-sidebar">
+                <div class="sidebar-cta-card">
+                    <h3>Request a Quote</h3>
+                    <p>Get pricing and availability for this equipment from our procurement engineers.</p>
+                    <a href="/contact/" class="btn btn-accent btn-block">Request a Quote</a>
+                    <div class="sidebar-phone">
+                        <p>Or call us directly:</p>
+                        <a href="tel:+18557062552" class="phone-link">+1 855 706 2552</a>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </div>
+</section>
+
+{% endblock content %}

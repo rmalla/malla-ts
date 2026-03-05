@@ -1,0 +1,298 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ product.display_name }} - {{ manufacturer.company_name|default:manufacturer.cage_code }} - PN {{ product.part_number|default:formatted_nsn }}{% endblock %}
+
+{% block extra_structured_data %}
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": "{{ product.display_name }}",
+    "description": "{{ product.display_name }} — NSN {{ formatted_nsn }}{% if product.part_number %}, Part Number {{ product.part_number }}{% endif %}",
+    "sku": "{{ formatted_nsn }}",
+    {% if product.part_number %}"mpn": "{{ product.part_number }}",{% endif %}
+    "manufacturer": {
+        "@type": "Organization",
+        "name": "{{ manufacturer.company_name|default:manufacturer.cage_code }}"
+    },
+    {% if pricing.unit_price %}
+    "offers": {
+        "@type": "Offer",
+        "price": "{{ pricing.unit_price }}",
+        "priceCurrency": "USD",
+        "availability": "https://schema.org/InStock"
+    },
+    {% endif %}
+    "brand": {
+        "@type": "Organization",
+        "name": "{{ manufacturer.company_name|default:manufacturer.cage_code }}"
+    }
+}
+</script>
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+        {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Home",
+            "item": "https://malla-ts.com/"
+        },
+        {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "Products",
+            "item": "https://malla-ts.com/products/"
+        },
+        {
+            "@type": "ListItem",
+            "position": 3,
+            "name": "{{ manufacturer.company_name|default:manufacturer.cage_code }}",
+            "item": "https://malla-ts.com{% url 'manufacturer_detail' manufacturer.slug %}"
+        },
+        {
+            "@type": "ListItem",
+            "position": 4,
+            "name": "{{ product.part_number|default:product.display_name|truncatewords:8 }}",
+            "item": "https://malla-ts.com{% url 'product_detail' manufacturer.slug product.part_number_slug %}"
+        }
+    ]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+
+<section class="page-header page-header--with-image nsn-header" style="background-image: url('{% static 'images/hero-nsn.jpg' %}')">
+    <div class="container">
+        <nav class="breadcrumb">
+            <a href="{% url 'product_list' %}">Products</a>
+            <span class="separator">/</span>
+            <a href="{% url 'manufacturer_detail' manufacturer.slug %}">{{ manufacturer.company_name|default:manufacturer.cage_code }}</a>
+            <span class="separator">/</span>
+            <span class="current">{{ product.part_number|default:product.display_name|truncatewords:6 }}</span>
+        </nav>
+        <h1>{{ product.display_name }}</h1>
+        <p class="page-intro nsn-item-title"><a href="{% url 'manufacturer_detail' manufacturer.slug %}" style="color: inherit; text-decoration: underline;">{{ manufacturer.company_name|default:manufacturer.cage_code }}</a>{% if product.part_number %} | PN: {{ product.part_number }}{% endif %}</p>
+    </div>
+</section>
+
+<section class="page-content">
+    <div class="container">
+        <div class="nsn-detail-grid">
+
+            <!-- Main Content -->
+            <div class="nsn-detail-main">
+
+                <!-- Product Details -->
+                <div class="nsn-detail-card">
+                    <h2>Product Details</h2>
+                    <table class="nsn-specs-table">
+                        <tr>
+                            <th>Product Name</th>
+                            <td>{{ product.display_name }}</td>
+                        </tr>
+                        <tr>
+                            <th>Manufacturer</th>
+                            <td><a href="{% url 'manufacturer_detail' manufacturer.slug %}">{{ manufacturer.company_name|default:manufacturer.cage_code }}</a></td>
+                        </tr>
+                        {% if product.part_number %}
+                        <tr>
+                            <th>Part Number</th>
+                            <td>{{ product.part_number }}</td>
+                        </tr>
+                        {% endif %}
+                        {% if pricing.unit_price %}
+                        <tr>
+                            <th>Unit Price</th>
+                            <td class="price-value">${{ pricing.unit_price|floatformat:2 }}</td>
+                        </tr>
+                        {% endif %}
+                        {% if catalog.unit_of_issue %}
+                        <tr>
+                            <th>Unit of Issue</th>
+                            <td>{{ catalog.unit_of_issue }}</td>
+                        </tr>
+                        {% endif %}
+                    </table>
+                </div>
+
+                <!-- Physical Specifications (from FLISV enrichment) -->
+                {% if catalog_specs %}
+                <div class="nsn-detail-card">
+                    <h2>Physical Specifications</h2>
+                    <table class="nsn-specs-table">
+                        {% if catalog_specs.material %}
+                        <tr><th>Material</th><td>{{ catalog_specs.material }}</td></tr>
+                        {% endif %}
+                        {% if catalog_specs.overall_length %}
+                        <tr><th>Overall Length</th><td>{{ catalog_specs.overall_length }}</td></tr>
+                        {% endif %}
+                        {% if catalog_specs.overall_width %}
+                        <tr><th>Overall Width</th><td>{{ catalog_specs.overall_width }}</td></tr>
+                        {% endif %}
+                        {% if catalog_specs.overall_height %}
+                        <tr><th>Overall Height</th><td>{{ catalog_specs.overall_height }}</td></tr>
+                        {% endif %}
+                        {% if catalog_specs.overall_diameter %}
+                        <tr><th>Overall Diameter</th><td>{{ catalog_specs.overall_diameter }}</td></tr>
+                        {% endif %}
+                        {% if catalog_specs.weight %}
+                        <tr><th>Weight</th><td>{{ catalog_specs.weight }}</td></tr>
+                        {% endif %}
+                        {% if catalog_specs.color %}
+                        <tr><th>Color</th><td>{{ catalog_specs.color }}</td></tr>
+                        {% endif %}
+                        {% if catalog_specs.end_item_identification %}
+                        <tr><th>End Item</th><td>{{ catalog_specs.end_item_identification }}</td></tr>
+                        {% endif %}
+                        {% if catalog_specs.special_features %}
+                        <tr><th>Special Features</th><td>{{ catalog_specs.special_features }}</td></tr>
+                        {% endif %}
+                    </table>
+                </div>
+                {% endif %}
+
+                <!-- Detailed Specifications (from FLISV decode or ProductSpecification) -->
+                {% if catalog_specs.specifications_json %}
+                <div class="nsn-detail-card">
+                    <h2>Detailed Specifications</h2>
+                    {% regroup catalog_specs.specifications_json by group as spec_groups %}
+                    {% for group in spec_groups %}
+                    {% if group.grouper %}
+                    <h3 class="spec-group-heading">{{ group.grouper }}</h3>
+                    {% endif %}
+                    <table class="nsn-specs-table">
+                        {% for spec in group.list %}
+                        <tr>
+                            <th>{{ spec.label }}</th>
+                            <td>{{ spec.value }}</td>
+                        </tr>
+                        {% endfor %}
+                    </table>
+                    {% endfor %}
+                </div>
+                {% elif specifications %}
+                <div class="nsn-detail-card">
+                    <h2>Detailed Specifications</h2>
+                    {% regroup specifications by group as spec_groups %}
+                    {% for group in spec_groups %}
+                    {% if group.grouper %}
+                    <h3 class="spec-group-heading">{{ group.grouper }}</h3>
+                    {% endif %}
+                    <table class="nsn-specs-table">
+                        {% for spec in group.list %}
+                        <tr>
+                            <th>{{ spec.label }}</th>
+                            <td>{{ spec.value }}</td>
+                        </tr>
+                        {% endfor %}
+                    </table>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <!-- Government Reference -->
+                {% if catalog %}
+                <div class="nsn-detail-card">
+                    <h2>Government Reference</h2>
+                    <table class="nsn-specs-table">
+                        <tr>
+                            <th>NSN</th>
+                            <td>{{ formatted_nsn }}</td>
+                        </tr>
+                        {% if catalog.fsc %}
+                        <tr>
+                            <th>Federal Supply Class</th>
+                            <td>
+                                <a href="{% url 'nsn_fsc_list' catalog.fsc.code %}">{{ catalog.fsc.code }} - {{ catalog.fsc.name }}</a>
+                            </td>
+                        </tr>
+                        {% endif %}
+                        {% if manufacturer.cage_code %}
+                        <tr>
+                            <th>CAGE Code</th>
+                            <td>{{ manufacturer.cage_code }}</td>
+                        </tr>
+                        {% endif %}
+                    </table>
+                </div>
+                {% endif %}
+
+            </div>
+
+            <!-- Sidebar / Quote Form -->
+            <aside class="nsn-detail-sidebar">
+                <div class="nsn-quote-form-card">
+                    <h3>Request a Quote</h3>
+                    <p class="quote-intro">Get pricing and availability for this product.</p>
+
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }}">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+
+                    <form class="nsn-quote-form" action="/contact/submit/" method="POST">
+                        {% csrf_token %}
+                        <input type="hidden" name="nsn" value="{{ formatted_nsn }}" />
+                        <input type="hidden" name="item_name" value="{{ product.display_name }} ({{ manufacturer.company_name|default:manufacturer.cage_code }}{% if product.part_number %}, PN: {{ product.part_number }}{% endif %})" />
+
+                        <div class="form-group">
+                            <label for="name">Name *</label>
+                            <input type="text" id="name" name="name" required />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="email">Email *</label>
+                            <input type="email" id="email" name="email" required />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="message">Message</label>
+                            <textarea id="message" name="message" rows="4">Please send more information about {{ manufacturer.company_name|default:manufacturer.cage_code }} part number {{ product.part_number|default:formatted_nsn }}.</textarea>
+                        </div>
+
+                        <button type="submit" class="btn btn-accent btn-lg btn-block">Submit Request</button>
+                    </form>
+
+                    <div class="quote-contact">
+                        <p>Or call us directly:</p>
+                        <a href="tel:+18557062552" class="phone-link">+1 855 706 2552</a>
+                    </div>
+                </div>
+            </aside>
+
+        </div>
+
+        <!-- Related Products -->
+        {% if related_products %}
+        <div class="nsn-related">
+            <h2>Related Products{% if catalog.fsc %} in FSC {{ catalog.fsc.code }}{% endif %}</h2>
+            <div class="related-grid">
+                {% for related in related_products %}
+                <a href="{% url 'product_detail' related.manufacturer.slug related.part_number_slug %}" class="related-card">
+                    <span class="related-nsn">{{ related.catalog_item.nsn }}</span>
+                    <span class="related-name">{{ related.display_name }}</span>
+                    <span class="related-price">{{ related.manufacturer.company_name|default:related.manufacturer.cage_code }}</span>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Back Link -->
+        <div class="nsn-back-link">
+            <a href="{% url 'product_list' %}">&larr; Back to Products</a>
+        </div>
+
+    </div>
+</section>
+
+{% endblock content %}

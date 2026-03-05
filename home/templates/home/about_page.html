@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+{% load static wagtailcore_tags wagtailimages_tags %}
+
+{% block body_class %}template-aboutpage{% endblock %}
+
+{% block content %}
+
+<!-- Hero -->
+<section class="page-header page-header--with-image" style="background-image: url('{% static 'images/hero-about.jpg' %}')">
+    <div class="container">
+        <p class="page-header-label">About Us</p>
+        <h1>Procurement Engineering Excellence</h1>
+        <p class="page-intro">Over 20 years of supply chain expertise delivering equipment solutions to government, energy, and public sector organizations nationwide.</p>
+    </div>
+</section>
+
+<!-- Mission Statement - short, punchy -->
+<section class="about-mission">
+    <div class="container">
+        <div class="about-mission-inner">
+            <div class="about-mission-icon">
+                <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="24" cy="24" r="20"/>
+                    <circle cx="24" cy="24" r="12"/>
+                    <circle cx="24" cy="24" r="4"/>
+                </svg>
+            </div>
+            <div class="about-mission-text">
+                <h2>Our Mission</h2>
+                <p class="about-mission-statement">We source and deliver the right equipment at the best price &mdash; period. No installation upsells, no maintenance contracts. Just expert procurement focused entirely on your success.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Stats Bar -->
+<section class="about-stats">
+    <div class="container">
+        <div class="about-stats-grid">
+            <div class="about-stat">
+                <span class="about-stat-number">20+</span>
+                <span class="about-stat-label">Years in Business</span>
+            </div>
+            <div class="about-stat">
+                <span class="about-stat-number">4</span>
+                <span class="about-stat-label">Industries Served</span>
+            </div>
+            <div class="about-stat">
+                <span class="about-stat-number">1,500+</span>
+                <span class="about-stat-label">NSN Items Tracked</span>
+            </div>
+            <div class="about-stat">
+                <span class="about-stat-number">50</span>
+                <span class="about-stat-label">States Covered</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- What We Do - visual cards, not text -->
+<section class="about-services">
+    <div class="container">
+        <div class="section-header">
+            <p class="section-title">What We Do</p>
+            <h2 class="section-heading">Equipment Procurement &mdash; And Only Equipment</h2>
+            <p class="section-intro">Unlike vendors who bundle installation and service contracts, we focus exclusively on sourcing and delivering. This singular focus is our competitive advantage.</p>
+        </div>
+        <div class="about-capabilities-grid">
+            <div class="about-capability-card">
+                <div class="about-capability-icon">
+                    <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="20" cy="20" r="16"/>
+                        <path d="M20 10v10l7 4"/>
+                    </svg>
+                </div>
+                <h3>Supplier Networks</h3>
+                <p>Extensive relationships across all equipment categories, built over two decades of industry presence.</p>
+            </div>
+            <div class="about-capability-card">
+                <div class="about-capability-icon">
+                    <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M5 35V15l15-10 15 10v20H5z"/>
+                        <path d="M15 35V23h10v12"/>
+                    </svg>
+                </div>
+                <h3>Competitive Pricing</h3>
+                <p>Volume-based supplier relationships mean lower prices passed directly to you.</p>
+            </div>
+            <div class="about-capability-card">
+                <div class="about-capability-icon">
+                    <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="4" y="6" width="32" height="28" rx="2"/>
+                        <path d="M4 14h32"/>
+                        <path d="M12 22h16"/>
+                        <path d="M12 28h10"/>
+                    </svg>
+                </div>
+                <h3>Procurement Compliance</h3>
+                <p>Expert navigation of GSA schedules, FAR/DFAR requirements, and government procurement regulations.</p>
+            </div>
+            <div class="about-capability-card">
+                <div class="about-capability-icon">
+                    <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20 4l5 10h11l-9 7 3 11-10-6-10 6 3-11-9-7h11z"/>
+                    </svg>
+                </div>
+                <h3>Technical Guidance</h3>
+                <p>Procurement engineers who understand specifications, compatibility, and your industry's unique requirements.</p>
+            </div>
+            <div class="about-capability-card">
+                <div class="about-capability-icon">
+                    <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M8 32l6-12 6 8 6-16 6 10"/>
+                        <rect x="4" y="4" width="32" height="32" rx="2"/>
+                    </svg>
+                </div>
+                <h3>Documentation</h3>
+                <p>Complete audit trails, certifications, and compliance documentation for every order.</p>
+            </div>
+            <div class="about-capability-card">
+                <div class="about-capability-icon">
+                    <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="20" cy="16" r="12"/>
+                        <path d="M20 28v8"/>
+                        <path d="M12 36h16"/>
+                        <path d="M14 10l6 6 10-8"/>
+                    </svg>
+                </div>
+                <h3>Nationwide Delivery</h3>
+                <p>Coast to coast logistics with tracked shipments and on-time delivery to any facility.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Industries - image-backed horizontal cards -->
+<section class="about-industries section-alt">
+    <div class="container">
+        <div class="section-header">
+            <p class="section-title">Who We Serve</p>
+            <h2 class="section-heading">Industries We Support</h2>
+        </div>
+        <div class="about-industries-grid">
+            <a href="/industries/government/" class="about-industry-card">
+                <div class="about-industry-image">
+                    <img src="{% static 'images/industry-government.jpg' %}" alt="Government Facilities" loading="lazy" />
+                </div>
+                <div class="about-industry-content">
+                    <h3>Government Facilities</h3>
+                    <p>Federal, state, and local government operations. GSA Schedule holder with full compliance capabilities.</p>
+                </div>
+            </a>
+            <a href="/industries/national-parks/" class="about-industry-card">
+                <div class="about-industry-image">
+                    <img src="{% static 'images/industry-parks.jpg' %}" alt="National Parks" loading="lazy" />
+                </div>
+                <div class="about-industry-content">
+                    <h3>National Parks</h3>
+                    <p>Specialized equipment for park maintenance, conservation programs, and visitor infrastructure.</p>
+                </div>
+            </a>
+            <a href="/industries/energy/" class="about-industry-card">
+                <div class="about-industry-image">
+                    <img src="{% static 'images/industry-energy.jpg' %}" alt="Energy & Oil/Gas" loading="lazy" />
+                </div>
+                <div class="about-industry-content">
+                    <h3>Energy & Oil/Gas</h3>
+                    <p>Industrial-grade, safety-critical equipment for energy production and distribution operations.</p>
+                </div>
+            </a>
+            <a href="/industries/municipal/" class="about-industry-card">
+                <div class="about-industry-image">
+                    <img src="{% static 'images/industry-municipal.jpg' %}" alt="Municipal Services" loading="lazy" />
+                </div>
+                <div class="about-industry-content">
+                    <h3>Municipal Services</h3>
+                    <p>Equipment solutions for water treatment, public works, utilities, and city infrastructure.</p>
+                </div>
+            </a>
+        </div>
+    </div>
+</section>
+
+<!-- Why Equipment Only - differentiator section -->
+<section class="about-differentiator">
+    <div class="container">
+        <div class="about-diff-grid">
+            <div class="about-diff-content">
+                <p class="section-title">Our Approach</p>
+                <h2>Why Equipment Only?</h2>
+                <p>By focusing solely on equipment procurement, we avoid conflicts of interest that bundled vendors face. We don't profit from installation complexity or maintenance dependency &mdash; we profit by getting you the right equipment at the right price.</p>
+                <ul class="about-diff-list">
+                    <li>
+                        <svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+                        Objective equipment recommendations
+                    </li>
+                    <li>
+                        <svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+                        No installation upsells or hidden costs
+                    </li>
+                    <li>
+                        <svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+                        Deep expertise in equipment specifications
+                    </li>
+                    <li>
+                        <svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+                        Transparent pricing with full documentation
+                    </li>
+                </ul>
+            </div>
+            <div class="about-diff-image">
+                <img src="{% static 'images/about-team.jpg' %}" alt="Malla Technical Services team" loading="lazy" />
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Certifications -->
+<section class="about-certs section-alt">
+    <div class="container">
+        <div class="section-header">
+            <p class="section-title">Credentials</p>
+            <h2 class="section-heading">Certifications & Registrations</h2>
+        </div>
+        <div class="about-certs-grid">
+            <div class="about-cert-card">
+                <div class="about-cert-icon">
+                    <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="4" y="4" width="32" height="32" rx="4"/>
+                        <path d="M12 20l5 5 11-11"/>
+                    </svg>
+                </div>
+                <h4>GSA Schedule Holder</h4>
+                <p>Authorized General Services Administration schedule contract holder for streamlined government procurement.</p>
+            </div>
+            <div class="about-cert-card">
+                <div class="about-cert-icon">
+                    <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <circle cx="20" cy="20" r="16"/>
+                        <path d="M20 10v20"/>
+                        <path d="M10 20h20"/>
+                    </svg>
+                </div>
+                <h4>SAM Registered</h4>
+                <p>Active registration in the System for Award Management, verified and current for federal contracting.</p>
+            </div>
+            <div class="about-cert-card">
+                <div class="about-cert-icon">
+                    <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M20 4l4 8h9l-7 6 3 9-9-5-9 5 3-9-7-6h9z"/>
+                    </svg>
+                </div>
+                <h4>DUNS Verified</h4>
+                <p>Dun & Bradstreet verified business identity for government and commercial credibility.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section cta-section--with-image" style="background-image: url('{% static 'images/cta-background.jpg' %}')">
+    <div class="container">
+        <h2>Ready to Work With Us?</h2>
+        <p>Contact our procurement engineers to discuss your equipment needs.</p>
+        <div class="hero-actions">
+            <a href="/contact/" class="btn btn-accent btn-lg">Request a Quote</a>
+            <a href="/equipment/" class="btn btn-white btn-lg">Browse Equipment</a>
+        </div>
+    </div>
+</section>
+
+{% endblock content %}

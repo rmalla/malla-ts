@@ -1,0 +1,9 @@
+<div class="tri-toggle" data-val="{{ widget.val }}">
+  <input type="hidden" name="{{ widget.name }}" value="{{ widget.val }}"{% include "django/forms/widgets/attrs.html" %}>
+  <div class="tri-toggle__track">
+    <div class="tri-toggle__seg">&#x2212;</div>
+    <div class="tri-toggle__seg">&#x25CF;</div>
+    <div class="tri-toggle__seg">&#x2713;</div>
+    <div class="tri-toggle__thumb"></div>
+  </div>
+</div>
