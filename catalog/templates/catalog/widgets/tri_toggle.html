@@ -1,4 +1,4 @@
-<div class="tri-toggle" data-val="{{ widget.val }}">
+<div class="tri-toggle" data-val="{{ widget.val }}"{% if widget.pk %} data-pk="{{ widget.pk }}"{% endif %}>
   <input type="hidden" name="{{ widget.name }}" value="{{ widget.val }}"{% include "django/forms/widgets/attrs.html" %}>
   <div class="tri-toggle__track">
     <div class="tri-toggle__seg">&#x2212;</div>

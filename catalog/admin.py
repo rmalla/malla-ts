@@ -1,7 +1,9 @@
 from django.contrib import admin, messages
+from django.http import JsonResponse
 from django.urls import path, reverse
 from django.utils.html import format_html
 
+from .constants import FilterFieldType, FilterAction, PipelineStage
 from .models import (
     Organization,
     OrganizationProfile,
@@ -182,19 +184,51 @@ class ImportJobAdmin(admin.ModelAdmin):
 # Organizations (unified model)
 # =============================================================================
 
+class ProfileStatusFilter(admin.SimpleListFilter):
+    title = "profile status"
+    parameter_name = "profile_status"
+
+    def lookups(self, request, model_admin):
+        return [
+            ("1", "Enabled"),
+            ("0", "Neutral"),
+            ("-1", "Disabled"),
+            ("none", "No profile"),
+        ]
+
+    def queryset(self, request, queryset):
+        val = self.value()
+        if val is None:
+            return queryset
+        if val == "none":
+            return queryset.filter(profile__isnull=True)
+        return queryset.filter(profile__status=int(val))
+
+
 @admin.register(Organization)
 class OrganizationAdmin(admin.ModelAdmin):
     change_list_template = "admin/catalog/organization/change_list.html"
     list_display = (
         "display_name_col", "cage_code", "slug",
+        "website",
         "city", "state", "country",
         "is_manufacturer", "is_awardee",
+        "status_toggle",
     )
-    list_filter = ("is_manufacturer", "is_awardee", "is_distributor", "country", "resolution_status")
+    list_filter = (
+        ProfileStatusFilter,
+        "is_manufacturer", "is_awardee", "is_distributor", "country", "resolution_status",
+    )
+    actions = ["enrich_from_sam"]
+    list_select_related = ("profile",)
     search_fields = ("cage_code", "company_name", "slug", "uei")
     ordering = ("company_name",)
     list_per_page = 50
     inlines = [OrganizationProfileInline]
+
+    class Media:
+        css = {"all": ("catalog/css/toggle.css",)}
+        js = ("catalog/js/toggle.js",)
 
     readonly_fields = ("profile_display_name",)
 
@@ -213,6 +247,24 @@ class OrganizationAdmin(admin.ModelAdmin):
         }),
     )
 
+    def status_toggle(self, obj):
+        try:
+            val = obj.profile.status
+        except OrganizationProfile.DoesNotExist:
+            val = 0
+        return format_html(
+            '<div class="tri-toggle" data-val="{val}" data-pk="{pk}">'
+            '<input type="hidden" name="_status_{pk}" value="{val}">'
+            '<div class="tri-toggle__track">'
+            '<div class="tri-toggle__seg">&#x2212;</div>'
+            '<div class="tri-toggle__seg">&#x25CF;</div>'
+            '<div class="tri-toggle__seg">&#x2713;</div>'
+            '<div class="tri-toggle__thumb"></div>'
+            '</div></div>',
+            val=val, pk=obj.pk,
+        )
+    status_toggle.short_description = "Status"
+
     def profile_display_name(self, obj):
         try:
             return obj.profile.display_name or "(not set)"
@@ -223,12 +275,82 @@ class OrganizationAdmin(admin.ModelAdmin):
     def get_urls(self):
         custom_urls = [
             path(
+                "set-status/<int:pk>/",
+                self.admin_site.admin_view(self.set_status_view),
+                name="catalog_organization_set_status",
+            ),
+            path(
                 "apply-name-filters/",
                 self.admin_site.admin_view(self.apply_name_filters_view),
                 name="catalog_organization_apply_name_filters",
             ),
+            path(
+                "purge-filtered/",
+                self.admin_site.admin_view(self.purge_filtered_view),
+                name="catalog_organization_purge_filtered",
+            ),
         ]
         return custom_urls + super().get_urls()
+
+    def set_status_view(self, request, pk):
+        if request.method != "POST":
+            return JsonResponse({"ok": False, "error": "POST required"}, status=405)
+
+        try:
+            status = int(request.POST.get("status", ""))
+        except (ValueError, TypeError):
+            return JsonResponse({"ok": False, "error": "Invalid status"}, status=400)
+
+        if status not in (-1, 0, 1):
+            return JsonResponse({"ok": False, "error": "Status must be -1, 0, or 1"}, status=400)
+
+        try:
+            org = Organization.objects.get(pk=pk)
+        except Organization.DoesNotExist:
+            return JsonResponse({"ok": False, "error": "Not found"}, status=404)
+
+        # Get old status before update
+        old_status = None
+        try:
+            old_status = org.profile.status
+        except OrganizationProfile.DoesNotExist:
+            pass
+
+        # Update or create profile with new status
+        OrganizationProfile.objects.update_or_create(
+            organization=org,
+            defaults={"status": status},
+        )
+
+        # PipelineFilter logic for CAGE code
+        if org.cage_code:
+            if status == Organization.DISABLED:
+                # Create/reactivate exclusion filter
+                pf, created = PipelineFilter.objects.get_or_create(
+                    field_type=FilterFieldType.CAGE_CODE,
+                    field_value=org.cage_code,
+                    stage=PipelineStage.ALL,
+                    defaults={
+                        "action": FilterAction.EXCLUDE,
+                        "is_active": True,
+                        "reason": f"Auto-disabled via admin toggle for {org.company_name}",
+                        "created_by": request.user,
+                    },
+                )
+                if not created and not pf.is_active:
+                    pf.is_active = True
+                    pf.reason = f"Re-disabled via admin toggle for {org.company_name}"
+                    pf.save(update_fields=["is_active", "reason", "updated_at"])
+            elif old_status == Organization.DISABLED:
+                # Deactivate the filter when moving away from Disabled
+                PipelineFilter.objects.filter(
+                    field_type=FilterFieldType.CAGE_CODE,
+                    field_value=org.cage_code,
+                    stage=PipelineStage.ALL,
+                    is_active=True,
+                ).update(is_active=False)
+
+        return JsonResponse({"ok": True})
 
     def apply_name_filters_view(self, request):
         from django.http import HttpResponseRedirect, HttpResponseNotAllowed
@@ -278,6 +400,113 @@ class OrganizationAdmin(admin.ModelAdmin):
         else:
             self.message_user(request, "No new organizations to disable.", messages.INFO)
         return HttpResponseRedirect(reverse("admin:catalog_organization_changelist"))
+
+    def purge_filtered_view(self, request):
+        from django.http import HttpResponseRedirect, HttpResponseNotAllowed
+        from catalog.models import PipelineFilter, Product, SupplierLink, AwardHistory
+
+        if request.method != "POST":
+            return HttpResponseNotAllowed(["POST"])
+
+        rules = PipelineFilter.objects.filter(
+            is_active=True,
+            field_type=FilterFieldType.MANUFACTURER_NAME,
+        )
+        if not rules.exists():
+            self.message_user(request, "No active manufacturer name filters found.", messages.INFO)
+            return HttpResponseRedirect(reverse("admin:catalog_organization_changelist"))
+
+        matched_pks = []
+        for org in Organization.objects.iterator():
+            for rule in rules:
+                if rule.matches(org.company_name):
+                    matched_pks.append(org.pk)
+                    break
+
+        if not matched_pks:
+            self.message_user(request, "No matching organizations to purge.", messages.INFO)
+            return HttpResponseRedirect(reverse("admin:catalog_organization_changelist"))
+
+        # Collect affected CatalogItem PKs before deletion
+        affected_catalog_pks = set(
+            SupplierLink.objects.filter(organization_id__in=matched_pks)
+                .values_list("catalog_item_id", flat=True)
+        ) | set(
+            Product.objects.filter(manufacturer_id__in=matched_pks)
+                .values_list("catalog_item_id", flat=True)
+        ) | set(
+            AwardHistory.objects.filter(awardee_id__in=matched_pks)
+                .values_list("catalog_item_id", flat=True)
+        )
+        affected_catalog_pks.discard(None)
+
+        deleted_count, deleted_detail = Organization.objects.filter(pk__in=matched_pks).delete()
+
+        # Refresh denormalized counts
+        if affected_catalog_pks:
+            for item in CatalogItem.objects.filter(pk__in=affected_catalog_pks):
+                item.supplier_count = item.supplier_links.count()
+                item.product_count = item.products.count()
+                item.award_count = item.awards.count()
+                item.save(update_fields=["supplier_count", "product_count", "award_count"])
+
+        parts = [f"{model}: {count}" for model, count in deleted_detail.items() if count]
+        self.message_user(
+            request,
+            f"Purged {len(matched_pks)} org(s) ({deleted_count} objects total: {', '.join(parts)}). "
+            f"Refreshed counts on {len(affected_catalog_pks)} catalog item(s).",
+            messages.SUCCESS,
+        )
+        return HttpResponseRedirect(reverse("admin:catalog_organization_changelist"))
+
+    @admin.action(description="Enrich selected from SAM.gov (max 50)")
+    def enrich_from_sam(self, request, queryset):
+        MAX_BATCH = 50
+        if queryset.count() > MAX_BATCH:
+            self.message_user(
+                request,
+                f"Select at most {MAX_BATCH} organizations at a time to avoid API rate limits.",
+                messages.ERROR,
+            )
+            return
+
+        cage_codes = list(
+            queryset.exclude(cage_code="")
+            .values_list("cage_code", flat=True)
+        )
+        if not cage_codes:
+            self.message_user(request, "No CAGE codes to look up.", messages.WARNING)
+            return
+
+        from catalog.services.sam_client import SAMGovClient
+        if not SAMGovClient.is_configured():
+            self.message_user(request, "SAM_GOV_API_KEY is not configured.", messages.ERROR)
+            return
+
+        with SAMGovClient() as client:
+            results = client.lookup_cages_batch(cage_codes)
+
+        updated = 0
+        for org in queryset.filter(cage_code__in=results.keys()):
+            info = results[org.cage_code]
+            changed_fields = []
+            if info.get("website") and not org.website:
+                org.website = info["website"]
+                changed_fields.append("website")
+            if info.get("uei") and not org.uei:
+                org.uei = info["uei"]
+                changed_fields.append("uei")
+            if changed_fields:
+                org.save(update_fields=changed_fields)
+                updated += 1
+
+        self.message_user(
+            request,
+            f"SAM.gov: looked up {len(cage_codes)} CAGE(s), "
+            f"got {len(results)} result(s), updated {updated} org(s). "
+            f"({client.api_calls_made} API call(s))",
+            messages.SUCCESS,
+        )
 
     def display_name_col(self, obj):
         return obj.display_name

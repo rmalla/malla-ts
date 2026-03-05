@@ -1,7 +1,22 @@
 {% extends "admin/change_list.html" %}
-{% load i18n %}
+{% load i18n static %}
+
+{% block extrahead %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'catalog/css/toggle.css' %}">
+  <script src="{% static 'catalog/js/toggle.js' %}" defer></script>
+{% endblock %}
 
 {% block object-tools-items %}
+  <li>
+    <form action="{% url 'admin:catalog_organization_purge_filtered' %}" method="post" style="display:inline"
+          onsubmit="return confirm('Delete all organizations matching manufacturer name filters and their related data?')">
+      {% csrf_token %}
+      <button type="submit" class="button" style="cursor:pointer; background:#ba2121; color:#fff">
+        Purge Filtered
+      </button>
+    </form>
+  </li>
   <li>
     <form action="{% url 'admin:catalog_organization_apply_name_filters' %}" method="post" style="display:inline">
       {% csrf_token %}
