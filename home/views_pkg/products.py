@@ -130,6 +130,7 @@ def manufacturer_detail(request, slug):
 def manufacturer_list(request):
     """Browse manufacturers."""
     query = request.GET.get("q", "").strip()
+    country_filter = request.GET.get("country", "").strip()
     page_number = request.GET.get("page", 1)
 
     manufacturers = Manufacturer.objects.select_related("profile").filter(
@@ -138,6 +139,11 @@ def manufacturer_list(request):
     ).distinct().annotate(
         product_count=models.Count("products", filter=models.Q(products__is_active=True))
     ).order_by("company_name")
+
+    if country_filter == "us":
+        manufacturers = manufacturers.filter(country="UNITED STATES")
+    elif country_filter == "non-us":
+        manufacturers = manufacturers.exclude(country="UNITED STATES").exclude(country="")
 
     if query:
         manufacturers = manufacturers.filter(
@@ -153,6 +159,7 @@ def manufacturer_list(request):
     context = {
         "manufacturers": manufacturers_page,
         "query": query,
+        "country_filter": country_filter,
         "total_count": total_count,
     }
     return render(request, "home/manufacturer_list.html", context)

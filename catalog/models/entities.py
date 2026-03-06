@@ -104,10 +104,20 @@ class Manufacturer(models.Model):
     zip_code = models.CharField(max_length=20, blank=True)
     country = models.CharField(max_length=100, blank=True)
 
-    # Role flags
-    is_manufacturer = models.BooleanField(default=False, db_index=True)
-    is_distributor = models.BooleanField(default=False, db_index=True)
-    is_awardee = models.BooleanField(default=False, db_index=True)
+    # Role classification (-1 = No, 0 = Neutral/unverified, 1 = Yes)
+    ROLE_NO = -1
+    ROLE_NEUTRAL = 0
+    ROLE_YES = 1
+    ROLE_CHOICES = [
+        (ROLE_NO, "No"),
+        (ROLE_NEUTRAL, "Neutral"),
+        (ROLE_YES, "Yes"),
+    ]
+
+    is_manufacturer = models.SmallIntegerField(
+        choices=ROLE_CHOICES, default=ROLE_NEUTRAL, db_index=True,
+        help_text="Verified manufacturer? -1=No, 0=Unverified, 1=Yes",
+    )
 
     # Resolution tracking
     resolution_status = models.CharField(

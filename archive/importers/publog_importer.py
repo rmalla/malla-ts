@@ -461,9 +461,15 @@ class PUBLOGImporter(BaseImporter):
                 i_niin = _col_index(header, "NIIN")
                 i_cage = _col_index(header, "CAGE_CODE")
                 i_pn = _col_index(header, "PART_NUMBER")
+                i_rncc = _col_index(header, "RNCC")
 
                 for row in reader:
                     row_count += 1
+
+                    # Only import manufacturer references (RNCC=3),
+                    # skip vendor/distributor entries (RNCC=5, etc.)
+                    if row[i_rncc].strip() != "3":
+                        continue
 
                     niin = row[i_niin].strip()
                     if not niin:

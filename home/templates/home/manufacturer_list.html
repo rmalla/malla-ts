@@ -31,9 +31,17 @@
                            placeholder="Search by company name..."
                            class="nsn-search-input"
                            autocomplete="off" />
+                    {% if country_filter %}<input type="hidden" name="country" value="{{ country_filter }}" />{% endif %}
                     <button type="submit" class="btn btn-primary nsn-search-btn">Search</button>
                 </div>
             </form>
+        </div>
+
+        <!-- Country Filter -->
+        <div class="filter-bar">
+            <a href="?{% if query %}q={{ query }}{% endif %}" class="btn btn-sm {% if not country_filter %}btn-primary{% else %}btn-secondary{% endif %}">All</a>
+            <a href="?{% if query %}q={{ query }}&{% endif %}country=us" class="btn btn-sm {% if country_filter == 'us' %}btn-primary{% else %}btn-secondary{% endif %}">US</a>
+            <a href="?{% if query %}q={{ query }}&{% endif %}country=non-us" class="btn btn-sm {% if country_filter == 'non-us' %}btn-primary{% else %}btn-secondary{% endif %}">Non-US</a>
         </div>
 
         {% if query %}
@@ -67,11 +75,11 @@
             <nav class="pagination-nav">
                 <ul class="pagination">
                     {% if manufacturers.has_previous %}
-                    <li><a href="?{% if query %}q={{ query }}&{% endif %}page={{ manufacturers.previous_page_number }}">&laquo; Previous</a></li>
+                    <li><a href="?{% if query %}q={{ query }}&{% endif %}{% if country_filter %}country={{ country_filter }}&{% endif %}page={{ manufacturers.previous_page_number }}">&laquo; Previous</a></li>
                     {% endif %}
                     <li class="page-info">Page {{ manufacturers.number }} of {{ manufacturers.paginator.num_pages }}</li>
                     {% if manufacturers.has_next %}
-                    <li><a href="?{% if query %}q={{ query }}&{% endif %}page={{ manufacturers.next_page_number }}">Next &raquo;</a></li>
+                    <li><a href="?{% if query %}q={{ query }}&{% endif %}{% if country_filter %}country={{ country_filter }}&{% endif %}page={{ manufacturers.next_page_number }}">Next &raquo;</a></li>
                     {% endif %}
                 </ul>
             </nav>

@@ -196,7 +196,7 @@ class FOIAImporter(BaseImporter):
                         mfr_obj = Manufacturer(
                             cage_code=None,
                             company_name=mfr_name.strip(),
-                            is_manufacturer=True,
+                            is_manufacturer=Manufacturer.ROLE_YES,
                         )
                         mfr_obj.save()
                         mfr_name_cache[mfr_key] = mfr_obj.pk

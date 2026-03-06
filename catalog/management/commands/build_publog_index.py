@@ -96,9 +96,15 @@ class Command(BaseCommand):
                 i_niin = header.index("NIIN")
                 i_cage = header.index("CAGE_CODE")
                 i_pn = header.index("PART_NUMBER")
+                i_rncc = header.index("RNCC")
 
                 batch = []
                 for row in reader:
+                    # Only index manufacturer references (RNCC=3),
+                    # skip vendor/distributor entries (RNCC=5, etc.)
+                    if row[i_rncc].strip() != "3":
+                        continue
+
                     niin = row[i_niin].strip()
                     cage = row[i_cage].strip()
                     if not niin or not cage or len(cage) != 5:

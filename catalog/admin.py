@@ -145,6 +145,58 @@ class ProfileStatusFilter(admin.SimpleListFilter):
         return queryset.filter(profile__status=int(val))
 
 
+class ProductCountFilter(admin.SimpleListFilter):
+    title = "product count"
+    parameter_name = "product_count"
+
+    def lookups(self, request, model_admin):
+        return [
+            ("0", "0"),
+            ("1", "1"),
+            ("2-5", "2–5"),
+            ("6-20", "6–20"),
+            ("20-100", "20–100"),
+            ("100+", "> 100"),
+        ]
+
+    def queryset(self, request, queryset):
+        val = self.value()
+        if val is None:
+            return queryset
+        ranges = {
+            "0": (0, 0),
+            "1": (1, 1),
+            "2-5": (2, 5),
+            "6-20": (6, 20),
+            "20-100": (20, 100),
+        }
+        if val in ranges:
+            lo, hi = ranges[val]
+            return queryset.filter(product_count__gte=lo, product_count__lte=hi)
+        if val == "100+":
+            return queryset.filter(product_count__gt=100)
+        return queryset
+
+
+class CountryGroupFilter(admin.SimpleListFilter):
+    title = "country"
+    parameter_name = "country_group"
+
+    def lookups(self, request, model_admin):
+        return [
+            ("us", "United States"),
+            ("non-us", "Non-US"),
+        ]
+
+    def queryset(self, request, queryset):
+        val = self.value()
+        if val == "us":
+            return queryset.filter(country="UNITED STATES")
+        if val == "non-us":
+            return queryset.exclude(country="UNITED STATES").exclude(country="")
+        return queryset
+
+
 @admin.register(Manufacturer)
 class ManufacturerAdmin(admin.ModelAdmin):
     change_list_template = "admin/catalog/manufacturer/change_list.html"
@@ -152,12 +204,12 @@ class ManufacturerAdmin(admin.ModelAdmin):
         "display_name_col", "product_count_col", "cage_code", "slug",
         "website",
         "city", "state", "country",
-        "is_manufacturer", "is_awardee",
+        "manufacturer_toggle",
         "status_toggle",
     )
     list_filter = (
-        ProfileStatusFilter,
-        "is_manufacturer", "is_awardee", "is_distributor", "country", "resolution_status",
+        ProfileStatusFilter, ProductCountFilter, CountryGroupFilter,
+        "is_manufacturer", "resolution_status",
     )
     list_select_related = ("profile",)
     search_fields = ("cage_code", "company_name", "slug", "uei")
@@ -181,7 +233,7 @@ class ManufacturerAdmin(admin.ModelAdmin):
             "fields": ("address", "city", "state", "zip_code", "country"),
         }),
         ("Flags", {
-            "fields": ("is_manufacturer", "is_distributor", "is_awardee",
+            "fields": ("is_manufacturer",
                        "resolution_status", "resolution_source", "resolved_from_api"),
         }),
     )
@@ -204,6 +256,21 @@ class ManufacturerAdmin(admin.ModelAdmin):
         )
     status_toggle.short_description = "Status"
 
+    def manufacturer_toggle(self, obj):
+        val = obj.is_manufacturer
+        return format_html(
+            '<div class="tri-toggle" data-val="{val}" data-pk="{pk}" data-field="is_manufacturer">'
+            '<input type="hidden" name="_mfr_{pk}" value="{val}">'
+            '<div class="tri-toggle__track">'
+            '<div class="tri-toggle__seg">&#x2212;</div>'
+            '<div class="tri-toggle__seg">&#x25CF;</div>'
+            '<div class="tri-toggle__seg">&#x2713;</div>'
+            '<div class="tri-toggle__thumb"></div>'
+            '</div></div>',
+            val=val, pk=obj.pk,
+        )
+    manufacturer_toggle.short_description = "Manufacturer"
+
     def profile_display_name(self, obj):
         try:
             return obj.profile.display_name or "(not set)"
@@ -217,6 +284,11 @@ class ManufacturerAdmin(admin.ModelAdmin):
                 "set-status/<int:pk>/",
                 self.admin_site.admin_view(self.set_status_view),
                 name="catalog_manufacturer_set_status",
+            ),
+            path(
+                "set-field/<int:pk>/",
+                self.admin_site.admin_view(self.set_field_view),
+                name="catalog_manufacturer_set_field",
             ),
             path(
                 "apply-name-filters/",
@@ -284,6 +356,33 @@ class ManufacturerAdmin(admin.ModelAdmin):
                     is_active=True,
                 ).update(is_active=False)
 
+        return JsonResponse({"ok": True})
+
+    def set_field_view(self, request, pk):
+        """Generic tri-toggle endpoint for SmallIntegerField tri-state fields."""
+        if request.method != "POST":
+            return JsonResponse({"ok": False, "error": "POST required"}, status=405)
+
+        field = request.POST.get("field", "")
+        ALLOWED_FIELDS = {"is_manufacturer"}
+        if field not in ALLOWED_FIELDS:
+            return JsonResponse({"ok": False, "error": f"Field '{field}' not allowed"}, status=400)
+
+        try:
+            value = int(request.POST.get("value", ""))
+        except (ValueError, TypeError):
+            return JsonResponse({"ok": False, "error": "Invalid value"}, status=400)
+
+        if value not in (-1, 0, 1):
+            return JsonResponse({"ok": False, "error": "Value must be -1, 0, or 1"}, status=400)
+
+        try:
+            mfr = Manufacturer.objects.get(pk=pk)
+        except Manufacturer.DoesNotExist:
+            return JsonResponse({"ok": False, "error": "Not found"}, status=404)
+
+        setattr(mfr, field, value)
+        mfr.save(update_fields=[field])
         return JsonResponse({"ok": True})
 
     def apply_name_filters_view(self, request):
@@ -423,13 +522,31 @@ class ManufacturerAdmin(admin.ModelAdmin):
 # Products
 # =============================================================================
 
+class ManufacturerVerifiedFilter(admin.SimpleListFilter):
+    title = "manufacturer verified"
+    parameter_name = "mfr_verified"
+
+    def lookups(self, request, model_admin):
+        return [
+            ("1", "Yes"),
+            ("0", "Neutral"),
+            ("-1", "No"),
+        ]
+
+    def queryset(self, request, queryset):
+        val = self.value()
+        if val is not None:
+            return queryset.filter(manufacturer__is_manufacturer=int(val))
+        return queryset
+
+
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
     list_display = (
         "display_name", "nsn", "manufacturer_display",
         "part_number", "price_display", "source", "is_active", "google_search_link", "view_on_site_link",
     )
-    list_filter = ("source", "is_active", "fsc")
+    list_filter = ("source", "is_active", ManufacturerVerifiedFilter, "fsc")
     search_fields = (
         "nsn", "nomenclature",
         "part_number", "name",

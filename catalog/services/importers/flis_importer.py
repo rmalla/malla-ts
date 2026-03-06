@@ -267,7 +267,7 @@ class FLISHistoryImporter(BaseImporter):
             return 0
 
         batch = [
-            Manufacturer(cage_code=code, company_name="", is_manufacturer=True)
+            Manufacturer(cage_code=code, company_name="", is_manufacturer=Manufacturer.ROLE_YES)
             for code in new_cages
         ]
         created = 0

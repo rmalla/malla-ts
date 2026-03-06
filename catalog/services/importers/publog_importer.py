@@ -435,7 +435,7 @@ class PUBLOGImporter(BaseImporter):
                     batch.append(Manufacturer(
                         cage_code=cage_code, company_name=company_name,
                         city=city, state=state, zip_code=zip_code,
-                        country=country, is_manufacturer=True, slug=slug,
+                        country=country, is_manufacturer=Manufacturer.ROLE_YES, slug=slug,
                     ))
 
                     if len(batch) >= BATCH_SIZE:
@@ -504,7 +504,7 @@ class PUBLOGImporter(BaseImporter):
                         cage_code=cage_code, company_name=company_name,
                         city=row[i_city].strip(), state=row[i_state].strip(),
                         zip_code=row[i_zip].strip(), country=row[i_country].strip(),
-                        is_manufacturer=True, slug=slug,
+                        is_manufacturer=Manufacturer.ROLE_YES, slug=slug,
                     ))
 
                     if len(batch) >= BATCH_SIZE:
