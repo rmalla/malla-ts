@@ -1,40 +1,27 @@
-from .entities import Organization, OrganizationProfile, DistributorStats, Manufacturer, CAGEEntity, Distributor
+from .entities import (
+    Manufacturer, ManufacturerProfile,
+    Organization, OrganizationProfile, CAGEEntity,  # backward compat aliases
+)
 from .filters import PipelineFilter
 from .jobs import ImportJob, ImportJobLog
 from .catalog import (
-    CatalogItem, CatalogPricing, CatalogSpecifications,
-    Product, ProductSpecification, SupplierLink, AwardHistory,
-    DataProvenance, DataSource,
-    NSNCatalog, Supplier,  # backward compat aliases
+    Product, ProductSpecification,
+    DataSource,
+    slugify_part_number,
 )
-from .opportunities import Opportunity, DIBBSOpportunity, MarketOpportunity
-from .transactions import PurchaseTransaction
 
 __all__ = [
-    # New names
-    "Organization",
-    "OrganizationProfile",
-    "DistributorStats",
-    "CatalogItem",
-    "CatalogPricing",
-    "CatalogSpecifications",
+    "Manufacturer",
+    "ManufacturerProfile",
     "Product",
     "ProductSpecification",
-    "SupplierLink",
-    "AwardHistory",
-    "DataProvenance",
     "DataSource",
     "PipelineFilter",
     "ImportJob",
     "ImportJobLog",
-    "Opportunity",
-    "DIBBSOpportunity",
-    "MarketOpportunity",
-    "PurchaseTransaction",
+    "slugify_part_number",
     # Backward compat aliases
-    "Manufacturer",
+    "Organization",
+    "OrganizationProfile",
     "CAGEEntity",
-    "Distributor",
-    "NSNCatalog",
-    "Supplier",
 ]

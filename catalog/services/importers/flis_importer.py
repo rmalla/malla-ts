@@ -1,5 +1,5 @@
 """
-FLIS History Importer — reads DLA HISTORY.zip to populate/enrich the NSN catalog.
+FLIS History Importer — reads DLA HISTORY.zip to populate Products directly.
 
 Data files (in imports/dla/):
   HISTORY.zip contains:
@@ -7,7 +7,8 @@ Data files (in imports/dla/):
     2. V_MANAGEMENT_HISTORY.CSV (4.3M rows) — NIIN, unit price, unit of issue
     3. V_REFERENCE_NUMBER_HISTORY.CSV (2.9M rows) — NIIN, part number, CAGE code
 
-Uses csv.reader with column indices (not DictReader) for ~2x throughput.
+Strategy: scan all 3 files to build a complete picture per NIIN, then create
+Manufacturer + Product records directly (no intermediate CatalogItem).
 """
 
 import csv
@@ -19,8 +20,8 @@ from decimal import Decimal, InvalidOperation
 from django.db import transaction
 
 from catalog.constants import DLA_DATA_DIR, JobType, LogLevel
-from catalog.models import CatalogItem, Organization
-from catalog.models.catalog import SupplierLink, CatalogPricing, DataSource
+from catalog.models import Manufacturer, Product
+from catalog.models.catalog import DataSource, slugify_part_number
 from .base import BaseImporter
 
 logger = logging.getLogger(__name__)
@@ -29,12 +30,7 @@ HISTORY_ZIP = DLA_DATA_DIR / "HISTORY.zip"
 BATCH_SIZE = 5000
 
 
-class NullClient:
-    api_calls_made = 0
-
-
 def _col(header, name):
-    """Get column index by name."""
     try:
         return header.index(name)
     except ValueError:
@@ -42,7 +38,6 @@ def _col(header, name):
 
 
 def format_nsn(fsc, niin):
-    """Format FSC + NIIN into standard NSN: XXXX-XX-XXX-XXXX."""
     fsc = str(fsc).strip().zfill(4)
     niin = str(niin).strip().zfill(9)
     return f"{fsc}-{niin[:2]}-{niin[2:5]}-{niin[5:]}"
@@ -61,79 +56,68 @@ def safe_decimal(val):
 
 
 class FLISHistoryImporter(BaseImporter):
-    """Import FLIS history data from HISTORY.zip into NSN catalog."""
+    """Import FLIS history data from HISTORY.zip directly into Product."""
 
     job_type = JobType.FLIS_HISTORY_IMPORT
 
     def __init__(self, stdout=None):
-        super().__init__(client=NullClient(), stdout=stdout)
+        super().__init__(stdout=stdout)
 
     def run(self, skip_management=False, skip_references=False, limit=None, **kwargs):
         if not HISTORY_ZIP.exists():
             raise FileNotFoundError(f"HISTORY.zip not found at {HISTORY_ZIP}")
 
         if limit:
-            self.log(f"Limit: {limit:,} catalog items")
+            self.log(f"Limit: {limit:,} products")
 
         zf = zipfile.ZipFile(HISTORY_ZIP, "r")
 
         try:
-            self.log("Phase 1: P_HISTORY_PICK.CSV (catalog + organizations)...")
-            pick_created, pick_updated, pick_errored = self._import_pick(zf, limit=limit)
-            self.log(
-                f"Phase 1 complete: {pick_created:,} created, "
-                f"{pick_updated:,} updated, {pick_errored:,} errored"
-            )
+            # Phase 1: Scan P_HISTORY_PICK — collect NIIN→(nsn, nomenclature, fsc_code, [(cage, part_number)])
+            self.log("Phase 1: P_HISTORY_PICK.CSV (NSN + nomenclature + CAGE/part refs)...")
+            niin_data, cage_set = self._scan_pick(zf, limit=limit)
+            self.log(f"Phase 1 complete: {len(niin_data):,} unique NIINs, {len(cage_set):,} unique CAGEs")
 
+            # Phase 2: Scan V_MANAGEMENT_HISTORY — attach prices
             if not skip_management:
                 self.log("Phase 2: V_MANAGEMENT_HISTORY.CSV (prices)...")
-                mgmt_updated, mgmt_errored = self._import_management(zf)
-                self.log(f"Phase 2 complete: {mgmt_updated:,} prices updated, {mgmt_errored:,} errored")
+                price_count = self._scan_prices(zf, niin_data)
+                self.log(f"Phase 2 complete: {price_count:,} NIINs with prices")
             else:
                 self.log("Phase 2: Skipped (--skip-management)")
-                mgmt_updated = mgmt_errored = 0
 
+            # Phase 3: Scan V_REFERENCE_NUMBER_HISTORY — additional CAGE/part refs
             if not skip_references:
-                self.log("Phase 3: V_REFERENCE_NUMBER_HISTORY.CSV (part numbers)...")
-                ref_created, ref_errored = self._import_references(zf)
-                self.log(f"Phase 3 complete: {ref_created:,} links created, {ref_errored:,} errored")
+                self.log("Phase 3: V_REFERENCE_NUMBER_HISTORY.CSV (additional refs)...")
+                ref_count, extra_cages = self._scan_references(zf, niin_data)
+                cage_set.update(extra_cages)
+                self.log(f"Phase 3 complete: {ref_count:,} additional refs")
             else:
                 self.log("Phase 3: Skipped (--skip-references)")
-                ref_created = ref_errored = 0
 
         finally:
             zf.close()
 
-        total_created = pick_created + ref_created
-        total_updated = pick_updated + mgmt_updated
-        total_errored = pick_errored + mgmt_errored + ref_errored
+        # Phase 4: Ensure manufacturers exist
+        self.log("Phase 4: Creating missing manufacturers...")
+        cage_created = self._ensure_manufacturers(cage_set)
+        self.log(f"Phase 4 complete: {cage_created:,} manufacturers created")
 
-        self.job.records_created = total_created
-        self.job.records_updated = total_updated
-        self.job.records_errored = total_errored
-        self.job.records_fetched = total_created + total_updated + total_errored
-        self.job.save(update_fields=[
-            "records_created", "records_updated", "records_errored", "records_fetched",
-        ])
+        # Phase 5: Create products
+        self.log("Phase 5: Creating products...")
+        products_created, products_errored = self._create_products(niin_data)
+        self.log(f"Phase 5 complete: {products_created:,} created, {products_errored:,} errored")
 
-    # ── Phase 1: P_HISTORY_PICK ─────────────────────────────────────────
+        self.job.records_created = products_created + cage_created
+        self.job.records_errored = products_errored
+        self.job.records_fetched = len(niin_data)
+        self.job.save(update_fields=["records_created", "records_errored", "records_fetched"])
 
-    def _import_pick(self, zf, limit=None):
-        """Import P_HISTORY_PICK.CSV using csv.reader for speed."""
-        created = 0
-        updated = 0
-        errored = 0
+    def _scan_pick(self, zf, limit=None):
+        """Scan P_HISTORY_PICK.CSV to collect NIIN data + CAGE/part refs."""
+        niin_data = {}  # niin -> {nsn, nomenclature, fsc_code, refs: [(cage, part_number)]}
+        cage_set = set()
         row_count = 0
-
-        nsn_batch = {}
-        cage_batch = {}
-        supplier_batch = []
-
-        existing_nsns = set(CatalogItem.objects.values_list("nsn", flat=True))
-        existing_cages = set(
-            Organization.objects.filter(cage_code__isnull=False)
-            .values_list("cage_code", flat=True)
-        )
 
         with zf.open("P_HISTORY_PICK.CSV") as f:
             reader = csv.reader(io.TextIOWrapper(f, encoding="utf-8"))
@@ -146,7 +130,6 @@ class FLISHistoryImporter(BaseImporter):
 
             for row in reader:
                 row_count += 1
-
                 try:
                     fsc = row[i_fsc].strip()
                     niin = row[i_niin].strip()
@@ -157,174 +140,44 @@ class FLISHistoryImporter(BaseImporter):
                     cage_code = row[i_cage].strip()
                     part_number = row[i_pn].strip()
 
-                    nsn = format_nsn(fsc, niin)
-
                     if item_name == "NO ITEM NAME AVAILABLE":
                         item_name = ""
 
-                    if nsn not in nsn_batch:
-                        nsn_batch[nsn] = {"nomenclature": item_name, "fsc_code": fsc}
-                    elif item_name and not nsn_batch[nsn]["nomenclature"]:
-                        nsn_batch[nsn]["nomenclature"] = item_name
+                    niin_padded = niin.zfill(9)
+                    nsn = format_nsn(fsc, niin_padded)
 
-                    if cage_code and len(cage_code) == 5 and cage_code not in existing_cages:
-                        cage_batch[cage_code] = True
+                    if niin_padded not in niin_data:
+                        niin_data[niin_padded] = {
+                            "nsn": nsn,
+                            "nomenclature": item_name,
+                            "fsc_code": fsc,
+                            "refs": [],
+                            "price": None,
+                            "unit_of_issue": "",
+                        }
+                    elif item_name and not niin_data[niin_padded]["nomenclature"]:
+                        niin_data[niin_padded]["nomenclature"] = item_name
 
                     if cage_code and len(cage_code) == 5:
-                        supplier_batch.append((nsn, cage_code, part_number))
+                        cage_set.add(cage_code)
+                        niin_data[niin_padded]["refs"].append((cage_code, part_number))
 
                 except Exception:
-                    errored += 1
+                    pass
 
-                if row_count % BATCH_SIZE == 0:
-                    c, u, e = self._flush_nsn_batch(nsn_batch, existing_nsns)
-                    created += c
-                    updated += u
-                    errored += e
-                    nsn_batch.clear()
+                if row_count % 500_000 == 0:
+                    self.log(f"  PICK: {row_count:,} rows, {len(niin_data):,} NIINs")
 
-                    self._flush_cage_batch(cage_batch, existing_cages)
-                    cage_batch.clear()
+                if limit and len(niin_data) >= limit:
+                    break
 
-                    self._flush_supplier_batch(supplier_batch)
-                    supplier_batch.clear()
+        self.log(f"  PICK: {row_count:,} rows processed")
+        return niin_data, cage_set
 
-                    if row_count % 500_000 == 0:
-                        self.log(f"  PICK: {row_count:,} rows ({created:,} created, {updated:,} updated)")
-
-                    # Check limit on unique NSNs created
-                    if limit and created >= limit:
-                        self.log(f"  PICK: reached limit of {limit:,} at row {row_count:,}")
-                        break
-
-        # Final flush
-        c, u, e = self._flush_nsn_batch(nsn_batch, existing_nsns)
-        created += c
-        updated += u
-        errored += e
-        self._flush_cage_batch(cage_batch, existing_cages)
-        self._flush_supplier_batch(supplier_batch)
-
-        self.log(f"  PICK: {row_count:,} rows processed, {created:,} created")
-        return created, updated, errored
-
-    def _flush_nsn_batch(self, nsn_batch, existing_nsns):
-        if not nsn_batch:
-            return 0, 0, 0
-
-        from home.models import FederalSupplyClass
-
-        fsc_codes = {v["fsc_code"] for v in nsn_batch.values() if v.get("fsc_code")}
-        fsc_map = {}
-        if fsc_codes:
-            fsc_map = {f.code: f for f in FederalSupplyClass.objects.filter(code__in=fsc_codes)}
-
-        to_create = []
-        to_update = []
-
-        for nsn, data in nsn_batch.items():
-            fsc = fsc_map.get(data.get("fsc_code"))
-            if nsn in existing_nsns:
-                if data["nomenclature"]:
-                    to_update.append(CatalogItem(nsn=nsn, nomenclature=data["nomenclature"], fsc=fsc))
-            else:
-                to_create.append(CatalogItem(nsn=nsn, nomenclature=data["nomenclature"], fsc=fsc))
-                existing_nsns.add(nsn)
-
-        created = updated = errored = 0
-
-        if to_create:
-            try:
-                with transaction.atomic():
-                    CatalogItem.objects.bulk_create(to_create, ignore_conflicts=True)
-                created = len(to_create)
-            except Exception as e:
-                self.log(f"  Bulk create error: {e}", level=LogLevel.WARNING)
-                errored = len(to_create)
-
-        if to_update:
-            nsns_to_update = [obj.nsn for obj in to_update]
-            existing_objs = CatalogItem.objects.filter(nsn__in=nsns_to_update, nomenclature="")
-            update_map = {obj.nsn: obj for obj in to_update}
-            objs_to_save = []
-            for existing in existing_objs:
-                new_data = update_map.get(existing.nsn)
-                if new_data and new_data.nomenclature:
-                    existing.nomenclature = new_data.nomenclature
-                    if new_data.fsc:
-                        existing.fsc = new_data.fsc
-                    objs_to_save.append(existing)
-
-            if objs_to_save:
-                try:
-                    with transaction.atomic():
-                        CatalogItem.objects.bulk_update(objs_to_save, ["nomenclature", "fsc"], batch_size=BATCH_SIZE)
-                    updated = len(objs_to_save)
-                except Exception as e:
-                    self.log(f"  Bulk update error: {e}", level=LogLevel.WARNING)
-                    errored += len(objs_to_save)
-
-        return created, updated, errored
-
-    def _flush_cage_batch(self, cage_batch, existing_cages):
-        if not cage_batch:
-            return
-        new_cages = [
-            Organization(cage_code=code, company_name="", is_manufacturer=True)
-            for code in cage_batch if code not in existing_cages
-        ]
-        if new_cages:
-            try:
-                with transaction.atomic():
-                    Organization.objects.bulk_create(new_cages, ignore_conflicts=True)
-                existing_cages.update(cage_batch.keys())
-            except Exception as e:
-                self.log(f"  CAGE batch error: {e}", level=LogLevel.WARNING)
-
-    def _flush_supplier_batch(self, supplier_batch):
-        if not supplier_batch:
-            return
-
-        nsns = {item[0] for item in supplier_batch}
-        cages = {item[1] for item in supplier_batch}
-
-        nsn_pk_map = dict(CatalogItem.objects.filter(nsn__in=nsns).values_list("nsn", "pk"))
-        cage_pk_map = dict(Organization.objects.filter(cage_code__in=cages).values_list("cage_code", "pk"))
-
-        existing_links = set(
-            SupplierLink.objects.filter(
-                catalog_item_id__in=nsn_pk_map.values(),
-                organization_id__in=cage_pk_map.values(),
-            ).values_list("catalog_item_id", "organization_id")
-        )
-
-        to_create = []
-        for nsn, cage_code, part_number in supplier_batch:
-            nsn_pk = nsn_pk_map.get(nsn)
-            cage_pk = cage_pk_map.get(cage_code)
-            if nsn_pk and cage_pk and (nsn_pk, cage_pk) not in existing_links:
-                to_create.append(SupplierLink(
-                    catalog_item_id=nsn_pk, organization_id=cage_pk,
-                    part_number=part_number, source=DataSource.FLIS_HISTORY,
-                ))
-                existing_links.add((nsn_pk, cage_pk))
-
-        if to_create:
-            try:
-                with transaction.atomic():
-                    SupplierLink.objects.bulk_create(to_create, ignore_conflicts=True)
-            except Exception as e:
-                self.log(f"  Supplier batch error: {e}", level=LogLevel.WARNING)
-
-    # ── Phase 2: V_MANAGEMENT_HISTORY ───────────────────────────────────
-
-    def _import_management(self, zf):
-        """Scan prices using csv.reader, then apply to catalog items."""
-        updated = 0
-        errored = 0
+    def _scan_prices(self, zf, niin_data):
+        """Scan V_MANAGEMENT_HISTORY.CSV, attach best price to niin_data entries."""
         row_count = 0
-
-        niin_prices = {}
+        matched = 0
 
         with zf.open("V_MANAGEMENT_HISTORY.CSV") as f:
             reader = csv.reader(io.TextIOWrapper(f, encoding="utf-8"))
@@ -344,90 +197,30 @@ class FLISHistoryImporter(BaseImporter):
                         continue
 
                     niin_padded = niin.zfill(9)
-                    niin_suffix = f"{niin_padded[:2]}-{niin_padded[2:5]}-{niin_padded[5:]}"
+                    entry = niin_data.get(niin_padded)
+                    if not entry:
+                        continue
 
-                    existing = niin_prices.get(niin_suffix)
-                    if not existing or price > existing[0]:
-                        niin_prices[niin_suffix] = (price, ui)
+                    if entry["price"] is None or price > entry["price"]:
+                        entry["price"] = price
+                        if ui:
+                            entry["unit_of_issue"] = ui
+                        matched += 1
+
                 except Exception:
-                    errored += 1
+                    pass
 
                 if row_count % 1_000_000 == 0:
-                    self.log(f"  MGMT: {row_count:,} rows, {len(niin_prices):,} NIINs with prices")
+                    self.log(f"  MGMT: {row_count:,} rows, {matched:,} matched")
 
-        self.log(f"  MGMT: {row_count:,} rows scanned, {len(niin_prices):,} NIINs with prices")
+        self.log(f"  MGMT: {row_count:,} rows scanned")
+        return matched
 
-        existing_pricing_ids = set(CatalogPricing.objects.values_list("catalog_item_id", flat=True))
-
-        pricing_batch = []
-        ui_batch = []
-
-        for item in CatalogItem.objects.exclude(pk__in=existing_pricing_ids).only("pk", "nsn", "unit_of_issue").iterator(chunk_size=BATCH_SIZE):
-            parts = item.nsn.split("-")
-            if len(parts) != 4:
-                continue
-
-            niin_suffix = f"{parts[1]}-{parts[2]}-{parts[3]}"
-            price_data = niin_prices.get(niin_suffix)
-            if not price_data:
-                continue
-
-            pricing_batch.append(CatalogPricing(
-                catalog_item_id=item.pk, unit_price=price_data[0],
-                flis_history_price=price_data[0], unit_price_source=DataSource.FLIS_HISTORY,
-            ))
-            if price_data[1] and not item.unit_of_issue:
-                item.unit_of_issue = price_data[1]
-                ui_batch.append(item)
-
-            if len(pricing_batch) >= BATCH_SIZE:
-                try:
-                    with transaction.atomic():
-                        CatalogPricing.objects.bulk_create(pricing_batch, ignore_conflicts=True)
-                        if ui_batch:
-                            CatalogItem.objects.bulk_update(ui_batch, ["unit_of_issue"], batch_size=BATCH_SIZE)
-                    updated += len(pricing_batch)
-                except Exception as e:
-                    self.log(f"  Price batch error: {e}", level=LogLevel.WARNING)
-                    errored += len(pricing_batch)
-                pricing_batch.clear()
-                ui_batch.clear()
-
-        if pricing_batch:
-            try:
-                with transaction.atomic():
-                    CatalogPricing.objects.bulk_create(pricing_batch, ignore_conflicts=True)
-                    if ui_batch:
-                        CatalogItem.objects.bulk_update(ui_batch, ["unit_of_issue"], batch_size=BATCH_SIZE)
-                updated += len(pricing_batch)
-            except Exception as e:
-                self.log(f"  Price batch error: {e}", level=LogLevel.WARNING)
-                errored += len(pricing_batch)
-
-        return updated, errored
-
-    # ── Phase 3: V_REFERENCE_NUMBER_HISTORY ─────────────────────────────
-
-    def _import_references(self, zf):
-        """Import additional part number → CAGE links using csv.reader."""
-        created = 0
-        errored = 0
+    def _scan_references(self, zf, niin_data):
+        """Scan V_REFERENCE_NUMBER_HISTORY.CSV for additional CAGE/part refs."""
         row_count = 0
-
-        niin_to_pk = {}
-        for nsn, pk in CatalogItem.objects.values_list("nsn", "pk"):
-            parts = nsn.split("-")
-            if len(parts) == 4:
-                niin_to_pk[parts[1] + parts[2] + parts[3]] = pk
-
-        cage_to_pk = dict(
-            Organization.objects.filter(cage_code__isnull=False).values_list("cage_code", "pk")
-        )
-        existing_links = set(
-            SupplierLink.objects.values_list("catalog_item_id", "organization_id")
-        )
-
-        supplier_batch = []
+        ref_count = 0
+        extra_cages = set()
 
         with zf.open("V_REFERENCE_NUMBER_HISTORY.CSV") as f:
             reader = csv.reader(io.TextIOWrapper(f, encoding="utf-8"))
@@ -445,53 +238,116 @@ class FLISHistoryImporter(BaseImporter):
                         continue
 
                     niin_padded = niin.zfill(9)
-                    nsn_pk = niin_to_pk.get(niin_padded)
-                    if not nsn_pk:
+                    entry = niin_data.get(niin_padded)
+                    if not entry:
                         continue
 
-                    cage_pk = cage_to_pk.get(cage_code)
-                    if not cage_pk:
-                        try:
-                            org, _ = Organization.objects.get_or_create(
-                                cage_code=cage_code,
-                                defaults={"company_name": "", "is_manufacturer": True},
-                            )
-                            cage_pk = org.pk
-                            cage_to_pk[cage_code] = cage_pk
-                        except Exception:
-                            continue
-
-                    if (nsn_pk, cage_pk) not in existing_links:
-                        supplier_batch.append(SupplierLink(
-                            catalog_item_id=nsn_pk, organization_id=cage_pk,
-                            part_number=row[i_pn].strip(), source=DataSource.FLIS_HISTORY,
-                        ))
-                        existing_links.add((nsn_pk, cage_pk))
+                    part_number = row[i_pn].strip()
+                    entry["refs"].append((cage_code, part_number))
+                    extra_cages.add(cage_code)
+                    ref_count += 1
 
                 except Exception:
-                    errored += 1
-
-                if len(supplier_batch) >= BATCH_SIZE:
-                    try:
-                        with transaction.atomic():
-                            SupplierLink.objects.bulk_create(supplier_batch, ignore_conflicts=True)
-                        created += len(supplier_batch)
-                    except Exception as e:
-                        self.log(f"  Ref batch error: {e}", level=LogLevel.WARNING)
-                        errored += len(supplier_batch)
-                    supplier_batch.clear()
+                    pass
 
                 if row_count % 1_000_000 == 0:
-                    self.log(f"  REF: {row_count:,} rows, {created:,} links")
+                    self.log(f"  REF: {row_count:,} rows, {ref_count:,} refs")
 
-        if supplier_batch:
+        self.log(f"  REF: {row_count:,} rows scanned")
+        return ref_count, extra_cages
+
+    def _ensure_manufacturers(self, cage_set):
+        """Create Manufacturer records for any new CAGE codes."""
+        existing_cages = set(
+            Manufacturer.objects.filter(cage_code__isnull=False)
+            .values_list("cage_code", flat=True)
+        )
+        new_cages = cage_set - existing_cages
+        if not new_cages:
+            return 0
+
+        batch = [
+            Manufacturer(cage_code=code, company_name="", is_manufacturer=True)
+            for code in new_cages
+        ]
+        created = 0
+        for i in range(0, len(batch), BATCH_SIZE):
+            chunk = batch[i:i + BATCH_SIZE]
             try:
                 with transaction.atomic():
-                    SupplierLink.objects.bulk_create(supplier_batch, ignore_conflicts=True)
-                created += len(supplier_batch)
+                    Manufacturer.objects.bulk_create(chunk, ignore_conflicts=True)
+                created += len(chunk)
             except Exception as e:
-                self.log(f"  Ref batch error: {e}", level=LogLevel.WARNING)
-                errored += len(supplier_batch)
+                self.log(f"  CAGE batch error: {e}", level=LogLevel.WARNING)
 
-        self.log(f"  REF: {row_count:,} rows, {created:,} links created")
+        return created
+
+    def _create_products(self, niin_data):
+        """Create Product records from collected NIIN data."""
+        from home.models import FederalSupplyClass
+
+        # Build lookup maps
+        cage_to_pk = dict(
+            Manufacturer.objects.filter(cage_code__isnull=False)
+            .values_list("cage_code", "pk")
+        )
+        fsc_map = {f.code: f.pk for f in FederalSupplyClass.objects.all()}
+
+        # Load existing products to skip duplicates
+        existing_products = set(
+            Product.objects.values_list("manufacturer_id", "part_number")
+        )
+
+        created = 0
+        errored = 0
+        batch = []
+
+        for niin, data in niin_data.items():
+            # Deduplicate refs by (cage, part_number)
+            seen_refs = set()
+            for cage_code, part_number in data["refs"]:
+                cage_pk = cage_to_pk.get(cage_code)
+                if not cage_pk:
+                    continue
+
+                product_key = (cage_pk, part_number)
+                if product_key in existing_products or product_key in seen_refs:
+                    continue
+                seen_refs.add(product_key)
+
+                batch.append(Product(
+                    manufacturer_id=cage_pk,
+                    part_number=part_number,
+                    part_number_slug=slugify_part_number(part_number),
+                    nsn=data["nsn"],
+                    nomenclature=data["nomenclature"],
+                    fsc_id=fsc_map.get(data["fsc_code"]),
+                    price=data["price"],
+                    unit_of_issue=data["unit_of_issue"],
+                    source=DataSource.FLIS_HISTORY,
+                ))
+                existing_products.add(product_key)
+
+                if len(batch) >= BATCH_SIZE:
+                    c, e = self._flush_product_batch(batch)
+                    created += c
+                    errored += e
+                    batch.clear()
+
+        if batch:
+            c, e = self._flush_product_batch(batch)
+            created += c
+            errored += e
+
         return created, errored
+
+    def _flush_product_batch(self, batch):
+        if not batch:
+            return 0, 0
+        try:
+            with transaction.atomic():
+                Product.objects.bulk_create(batch, ignore_conflicts=True)
+            return len(batch), 0
+        except Exception as e:
+            self.log(f"  Product batch error: {e}", level=LogLevel.WARNING)
+            return 0, len(batch)

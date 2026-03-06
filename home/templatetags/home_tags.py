@@ -8,5 +8,5 @@ register = template.Library()
 def get_manufacturers():
     """Get enabled manufacturers for homepage display."""
     return Manufacturer.objects.filter(
-        status=Manufacturer.ENABLED
-    ).select_related("logo")
+        profile__status=Manufacturer.ENABLED
+    ).select_related("profile", "profile__logo")

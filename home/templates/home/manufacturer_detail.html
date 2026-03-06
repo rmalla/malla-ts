@@ -1,28 +1,23 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{{ manufacturer.company_name|default:manufacturer.cage_code }} - Manufacturer{% endblock %}
+{% block title %}{{ manufacturer.display_name }} - Manufacturer{% endblock %}
 
 {% block extra_structured_data %}
 <script type="application/ld+json">
 {
     "@context": "https://schema.org",
     "@type": "Organization",
-    "name": "{{ manufacturer.company_name|default:manufacturer.cage_code }}",
-    {% if manufacturer.website %}"url": "{{ manufacturer.website }}",{% endif %}
+    "name": "{{ manufacturer.display_name }}"
+    {% if manufacturer.website %},"url": "{{ manufacturer.website }}"{% endif %}
     {% if manufacturer.city or manufacturer.state or manufacturer.country %}
-    "address": {
+    ,"address": {
         "@type": "PostalAddress"
         {% if manufacturer.city %},"addressLocality": "{{ manufacturer.city }}"{% endif %}
         {% if manufacturer.state %},"addressRegion": "{{ manufacturer.state }}"{% endif %}
         {% if manufacturer.country %},"addressCountry": "{{ manufacturer.country }}"{% endif %}
-    },
-    {% endif %}
-    "identifier": {
-        "@type": "PropertyValue",
-        "name": "CAGE Code",
-        "value": "{{ manufacturer.cage_code }}"
     }
+    {% endif %}
 }
 </script>
 {% endblock %}
@@ -34,10 +29,10 @@
         <nav class="breadcrumb">
             <a href="{% url 'product_list' %}">Products</a>
             <span class="separator">/</span>
-            <span class="current">{{ manufacturer.company_name|default:manufacturer.cage_code }}</span>
+            <span class="current">{{ manufacturer.display_name }}</span>
         </nav>
-        <h1>{{ manufacturer.company_name|default:manufacturer.cage_code }}</h1>
-        <p class="page-intro nsn-item-title">CAGE {{ manufacturer.cage_code }} | {{ product_count }} product{{ product_count|pluralize }}</p>
+        <h1>{{ manufacturer.display_name }}</h1>
+        <p class="page-intro nsn-item-title">{{ product_count }} product{{ product_count|pluralize }}</p>
     </div>
 </section>
 
@@ -52,15 +47,9 @@
                 <div class="nsn-detail-card">
                     <h2>Company Information</h2>
                     <table class="nsn-specs-table">
-                        {% if manufacturer.company_name %}
                         <tr>
                             <th>Company Name</th>
-                            <td>{{ manufacturer.company_name }}</td>
-                        </tr>
-                        {% endif %}
-                        <tr>
-                            <th>CAGE Code</th>
-                            <td>{{ manufacturer.cage_code }}</td>
+                            <td>{{ manufacturer.display_name }}</td>
                         </tr>
                         {% if manufacturer.city or manufacturer.state or manufacturer.country %}
                         <tr>
@@ -85,24 +74,20 @@
 
                 <!-- Products -->
                 <div class="nsn-detail-card">
-                    <h2>Products by {{ manufacturer.company_name|default:manufacturer.cage_code }}</h2>
+                    <h2>Products by {{ manufacturer.display_name }}</h2>
                     {% if products %}
                     <div class="nsn-results-list">
                         {% for item in products %}
                         <div class="nsn-result-card">
                             <div class="nsn-result-header">
-                                <a href="{% url 'product_detail' manufacturer.slug item.part_number_slug %}" class="nsn-link">{{ item.catalog_item.nsn }}</a>
-                                {% if item.catalog_item.fsc %}
-                                <span class="fsc-badge">FSC {{ item.catalog_item.fsc.code }}</span>
-                                {% endif %}
+                                <a href="{% url 'product_detail' manufacturer.slug item.part_number_slug %}" class="nsn-link">{{ item.display_name }}</a>
                             </div>
-                            <h3 class="nsn-item-name">{{ item.display_name }}</h3>
                             {% if item.part_number %}
                             <p class="nsn-description">Part Number: <strong>{{ item.part_number }}</strong></p>
                             {% endif %}
                             <div class="nsn-result-meta">
-                                {% if item.catalog_item.unit_of_issue %}
-                                <span class="nsn-unit">Unit: {{ item.catalog_item.unit_of_issue }}</span>
+                                {% if item.unit_of_issue %}
+                                <span class="nsn-unit">Unit: {{ item.unit_of_issue }}</span>
                                 {% endif %}
                             </div>
                             <a href="{% url 'product_detail' manufacturer.slug item.part_number_slug %}" class="btn btn-secondary btn-sm">View Details</a>
@@ -120,11 +105,11 @@
             <aside class="nsn-detail-sidebar">
                 <div class="nsn-quote-form-card">
                     <h3>Request a Quote</h3>
-                    <p class="quote-intro">Need products from {{ manufacturer.company_name|default:manufacturer.cage_code }}?</p>
+                    <p class="quote-intro">Need products from {{ manufacturer.display_name }}?</p>
 
                     <form class="nsn-quote-form" action="/contact/submit/" method="POST">
                         {% csrf_token %}
-                        <input type="hidden" name="item_name" value="Products by {{ manufacturer.company_name|default:manufacturer.cage_code }} (CAGE {{ manufacturer.cage_code }})" />
+                        <input type="hidden" name="item_name" value="Products by {{ manufacturer.display_name }}" />
 
                         <div class="form-group">
                             <label for="name">Name *</label>
@@ -138,7 +123,7 @@
 
                         <div class="form-group">
                             <label for="message">Message</label>
-                            <textarea id="message" name="message" rows="4">Please send more information about {{ manufacturer.company_name|default:manufacturer.cage_code }} products.</textarea>
+                            <textarea id="message" name="message" rows="4">Please send more information about {{ manufacturer.display_name }} products.</textarea>
                         </div>
 
                         <button type="submit" class="btn btn-accent btn-lg btn-block">Submit Request</button>

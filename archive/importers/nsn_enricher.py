@@ -2,7 +2,7 @@ import logging
 
 from home.models import FederalSupplyClass
 from catalog.constants import JobType, LogLevel
-from catalog.models import CatalogItem, Organization, AwardHistory
+from catalog.models import CatalogItem, Manufacturer, AwardHistory
 from catalog.models.catalog import SupplierLink, CatalogPricing
 from .base import BaseImporter
 from .cage_resolver import resolve_cage_inline
@@ -166,7 +166,7 @@ class NSNEnricher(BaseImporter):
 
         if cage_codes:
             existing = set(
-                Organization.objects.filter(cage_code__in=cage_codes)
+                Manufacturer.objects.filter(cage_code__in=cage_codes)
                 .values_list("cage_code", flat=True)
             )
             cage_codes -= existing
@@ -222,11 +222,11 @@ class NSNEnricher(BaseImporter):
         if cage_code in self._blocked_cages:
             return None, True
 
-        existing = Organization.objects.filter(cage_code=cage_code).first()
+        existing = Manufacturer.objects.filter(cage_code=cage_code).first()
         if existing:
             # Check profile status
             try:
-                if existing.profile.status == Organization.DISABLED:
+                if existing.profile.status == Manufacturer.DISABLED:
                     return existing, True
             except Exception:
                 pass
@@ -239,10 +239,10 @@ class NSNEnricher(BaseImporter):
             if self.filter_service:
                 result = self.filter_service.check_manufacturer_name(existing.company_name)
                 if result:
-                    from catalog.models import OrganizationProfile
-                    OrganizationProfile.objects.update_or_create(
+                    from catalog.models import ManufacturerProfile
+                    ManufacturerProfile.objects.update_or_create(
                         organization=existing,
-                        defaults={"status": Organization.DISABLED},
+                        defaults={"status": Manufacturer.DISABLED},
                     )
                     self.log(
                         f"Disabled org {existing.company_name} (CAGE {cage_code}): {result.reason}",
@@ -270,7 +270,7 @@ class NSNEnricher(BaseImporter):
 
         self.log(f"Resolved CAGE {cage_code} -> {company_name}")
 
-        org = Organization.objects.create(
+        org = Manufacturer.objects.create(
             cage_code=cage_code,
             company_name=company_name,
             is_manufacturer=is_manufacturer,

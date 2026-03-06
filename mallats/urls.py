@@ -69,7 +69,7 @@ urlpatterns = [
     path("health/", health_check, name="health_check"),
     # Redirect old home.Manufacturer admin → new ManufacturerProfile admin
     path("django-admin/home/manufacturer/", RedirectView.as_view(
-        url="/django-admin/catalog/organization/", permanent=True,
+        url="/django-admin/catalog/manufacturer/", permanent=True,
     )),
     path("django-admin/", admin.site.urls),
     path("admin/", include(wagtailadmin_urls)),
@@ -86,10 +86,6 @@ urlpatterns = [
     path("manufacturers/", home_views.manufacturer_list, name="manufacturer_list"),
     path("manufacturers/<slug:slug>/", home_views.manufacturer_detail, name="manufacturer_detail"),
 
-    # NSN Lookup pages
-    path("nsn/", home_views.nsn_search, name="nsn_search"),
-    path("nsn/<str:nsn>/", home_views.nsn_detail, name="nsn_detail"),
-    path("nsn/fsc/<str:fsc_code>/", home_views.nsn_fsc_list, name="nsn_fsc_list"),
 ]
 
 

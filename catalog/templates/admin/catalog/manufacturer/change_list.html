@@ -9,7 +9,7 @@
 
 {% block object-tools-items %}
   <li>
-    <form action="{% url 'admin:catalog_organization_purge_filtered' %}" method="post" style="display:inline"
+    <form action="{% url 'admin:catalog_manufacturer_purge_filtered' %}" method="post" style="display:inline"
           onsubmit="return confirm('Delete all organizations matching manufacturer name filters and their related data?')">
       {% csrf_token %}
       <button type="submit" class="button" style="cursor:pointer; background:#ba2121; color:#fff">
@@ -18,7 +18,7 @@
     </form>
   </li>
   <li>
-    <form action="{% url 'admin:catalog_organization_apply_name_filters' %}" method="post" style="display:inline">
+    <form action="{% url 'admin:catalog_manufacturer_apply_name_filters' %}" method="post" style="display:inline">
       {% csrf_token %}
       <button type="submit" class="button" style="cursor:pointer">
         Apply Name Filters

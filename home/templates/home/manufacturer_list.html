@@ -8,7 +8,7 @@
 <section class="page-header page-header--with-image" style="background-image: url('{% static 'images/hero-nsn.jpg' %}')">
     <div class="container">
         <h1>Manufacturers</h1>
-        <p class="page-intro">Verified manufacturers and suppliers of government-spec parts and equipment.</p>
+        <p class="page-intro">Verified manufacturers and suppliers of quality parts and equipment.</p>
     </div>
 </section>
 
@@ -19,7 +19,6 @@
         <nav class="catalog-subnav">
             <a href="{% url 'product_list' %}" class="catalog-subnav-link">Products</a>
             <a href="{% url 'manufacturer_list' %}" class="catalog-subnav-link active">Manufacturers</a>
-            <a href="{% url 'nsn_search' %}" class="catalog-subnav-link">NSN Lookup</a>
         </nav>
 
         <!-- Search Form -->
@@ -29,7 +28,7 @@
                     <input type="text"
                            name="q"
                            value="{{ query }}"
-                           placeholder="Search by company name or CAGE code..."
+                           placeholder="Search by company name..."
                            class="nsn-search-input"
                            autocomplete="off" />
                     <button type="submit" class="btn btn-primary nsn-search-btn">Search</button>
@@ -50,10 +49,7 @@
                 {% for mfr in manufacturers %}
                 <div class="nsn-result-card">
                     <div class="nsn-result-header">
-                        <a href="{% url 'manufacturer_detail' mfr.slug %}" class="nsn-link">{{ mfr.company_name|default:mfr.cage_code }}</a>
-                        {% if mfr.cage_code %}
-                        <span class="fsc-badge">CAGE {{ mfr.cage_code }}</span>
-                        {% endif %}
+                        <a href="{% url 'manufacturer_detail' mfr.slug %}" class="nsn-link">{{ mfr.display_name }}</a>
                     </div>
                     <p class="nsn-description">
                         {% if mfr.city or mfr.state or mfr.country %}
@@ -98,7 +94,7 @@
         <!-- CTA Box -->
         <div class="nsn-cta-box">
             <h3>Looking for a Specific Manufacturer?</h3>
-            <p>Our procurement team can source parts from any government-approved manufacturer.</p>
+            <p>Our procurement team can source parts from any manufacturer.</p>
             <a href="/contact/" class="btn btn-accent btn-lg">Request a Quote</a>
         </div>
 

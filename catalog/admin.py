@@ -5,23 +5,13 @@ from django.utils.html import format_html
 
 from .constants import FilterFieldType, FilterAction, PipelineStage
 from .models import (
-    Organization,
-    OrganizationProfile,
-    DistributorStats,
+    Manufacturer,
+    ManufacturerProfile,
     PipelineFilter,
     ImportJob,
     ImportJobLog,
-    CatalogItem,
-    CatalogPricing,
-    CatalogSpecifications,
     Product,
     ProductSpecification,
-    SupplierLink,
-    AwardHistory,
-    Opportunity,
-    MarketOpportunity,
-    PurchaseTransaction,
-    DataProvenance,
 )
 
 
@@ -42,57 +32,6 @@ class ImportJobLogInline(admin.TabularInline):
         return False
 
 
-class SupplierLinkInline(admin.TabularInline):
-    model = SupplierLink
-    extra = 0
-    raw_id_fields = ("organization",)
-    readonly_fields = ("organization", "part_number", "source", "created_at")
-
-    def has_add_permission(self, request, obj=None):
-        return False
-
-
-class AwardHistoryInline(admin.TabularInline):
-    model = AwardHistory
-    extra = 0
-    raw_id_fields = ("awardee",)
-    readonly_fields = (
-        "awardee", "contract_number", "quantity", "unit_cost",
-        "award_date", "surplus", "part_number", "created_at",
-    )
-
-    def has_add_permission(self, request, obj=None):
-        return False
-
-
-class CatalogPricingInline(admin.StackedInline):
-    model = CatalogPricing
-    extra = 0
-    max_num = 1
-
-    def has_add_permission(self, request, obj=None):
-        return obj is not None and not hasattr(obj, 'pricing')
-
-
-class CatalogSpecificationsInline(admin.StackedInline):
-    model = CatalogSpecifications
-    extra = 0
-    max_num = 1
-    fieldsets = (
-        ("Tier 1 Fields", {
-            "fields": (
-                "material", "overall_length", "overall_width", "overall_height",
-                "overall_diameter", "weight", "color", "end_item_identification",
-                "special_features",
-            ),
-        }),
-        ("Full Data", {
-            "fields": ("specifications_json", "characteristics_json", "source"),
-            "classes": ("collapse",),
-        }),
-    )
-
-
 class ProductSpecificationInline(admin.TabularInline):
     model = ProductSpecification
     extra = 0
@@ -102,8 +41,8 @@ class ProductSpecificationInline(admin.TabularInline):
         return False
 
 
-class OrganizationProfileInline(admin.StackedInline):
-    model = OrganizationProfile
+class ManufacturerProfileInline(admin.StackedInline):
+    model = ManufacturerProfile
     extra = 0
     max_num = 1
     raw_id_fields = ("logo",)
@@ -205,9 +144,9 @@ class ProfileStatusFilter(admin.SimpleListFilter):
         return queryset.filter(profile__status=int(val))
 
 
-@admin.register(Organization)
-class OrganizationAdmin(admin.ModelAdmin):
-    change_list_template = "admin/catalog/organization/change_list.html"
+@admin.register(Manufacturer)
+class ManufacturerAdmin(admin.ModelAdmin):
+    change_list_template = "admin/catalog/manufacturer/change_list.html"
     list_display = (
         "display_name_col", "cage_code", "slug",
         "website",
@@ -219,12 +158,11 @@ class OrganizationAdmin(admin.ModelAdmin):
         ProfileStatusFilter,
         "is_manufacturer", "is_awardee", "is_distributor", "country", "resolution_status",
     )
-    actions = ["enrich_from_sam"]
     list_select_related = ("profile",)
     search_fields = ("cage_code", "company_name", "slug", "uei")
     ordering = ("company_name",)
     list_per_page = 50
-    inlines = [OrganizationProfileInline]
+    inlines = [ManufacturerProfileInline]
 
     class Media:
         css = {"all": ("catalog/css/toggle.css",)}
@@ -250,7 +188,7 @@ class OrganizationAdmin(admin.ModelAdmin):
     def status_toggle(self, obj):
         try:
             val = obj.profile.status
-        except OrganizationProfile.DoesNotExist:
+        except ManufacturerProfile.DoesNotExist:
             val = 0
         return format_html(
             '<div class="tri-toggle" data-val="{val}" data-pk="{pk}">'
@@ -268,7 +206,7 @@ class OrganizationAdmin(admin.ModelAdmin):
     def profile_display_name(self, obj):
         try:
             return obj.profile.display_name or "(not set)"
-        except OrganizationProfile.DoesNotExist:
+        except ManufacturerProfile.DoesNotExist:
             return "(no profile)"
     profile_display_name.short_description = "Display Name"
 
@@ -277,17 +215,17 @@ class OrganizationAdmin(admin.ModelAdmin):
             path(
                 "set-status/<int:pk>/",
                 self.admin_site.admin_view(self.set_status_view),
-                name="catalog_organization_set_status",
+                name="catalog_manufacturer_set_status",
             ),
             path(
                 "apply-name-filters/",
                 self.admin_site.admin_view(self.apply_name_filters_view),
-                name="catalog_organization_apply_name_filters",
+                name="catalog_manufacturer_apply_name_filters",
             ),
             path(
                 "purge-filtered/",
                 self.admin_site.admin_view(self.purge_filtered_view),
-                name="catalog_organization_purge_filtered",
+                name="catalog_manufacturer_purge_filtered",
             ),
         ]
         return custom_urls + super().get_urls()
@@ -305,27 +243,23 @@ class OrganizationAdmin(admin.ModelAdmin):
             return JsonResponse({"ok": False, "error": "Status must be -1, 0, or 1"}, status=400)
 
         try:
-            org = Organization.objects.get(pk=pk)
-        except Organization.DoesNotExist:
+            org = Manufacturer.objects.get(pk=pk)
+        except Manufacturer.DoesNotExist:
             return JsonResponse({"ok": False, "error": "Not found"}, status=404)
 
-        # Get old status before update
         old_status = None
         try:
             old_status = org.profile.status
-        except OrganizationProfile.DoesNotExist:
+        except ManufacturerProfile.DoesNotExist:
             pass
 
-        # Update or create profile with new status
-        OrganizationProfile.objects.update_or_create(
+        ManufacturerProfile.objects.update_or_create(
             organization=org,
             defaults={"status": status},
         )
 
-        # PipelineFilter logic for CAGE code
         if org.cage_code:
-            if status == Organization.DISABLED:
-                # Create/reactivate exclusion filter
+            if status == Manufacturer.DISABLED:
                 pf, created = PipelineFilter.objects.get_or_create(
                     field_type=FilterFieldType.CAGE_CODE,
                     field_value=org.cage_code,
@@ -341,8 +275,7 @@ class OrganizationAdmin(admin.ModelAdmin):
                     pf.is_active = True
                     pf.reason = f"Re-disabled via admin toggle for {org.company_name}"
                     pf.save(update_fields=["is_active", "reason", "updated_at"])
-            elif old_status == Organization.DISABLED:
-                # Deactivate the filter when moving away from Disabled
+            elif old_status == Manufacturer.DISABLED:
                 PipelineFilter.objects.filter(
                     field_type=FilterFieldType.CAGE_CODE,
                     field_value=org.cage_code,
@@ -354,22 +287,18 @@ class OrganizationAdmin(admin.ModelAdmin):
 
     def apply_name_filters_view(self, request):
         from django.http import HttpResponseRedirect, HttpResponseNotAllowed
-        from catalog.constants import FilterFieldType, PipelineStage
-        from catalog.models import PipelineFilter
 
         if request.method != "POST":
             return HttpResponseNotAllowed(["POST"])
 
-        # Disable nameless organizations
-        nameless = Organization.objects.filter(company_name="")
+        nameless = Manufacturer.objects.filter(company_name="")
         nameless_pks = list(nameless.values_list("pk", flat=True))
         nameless_count = len(nameless_pks)
         if nameless_pks:
-            OrganizationProfile.objects.filter(
+            ManufacturerProfile.objects.filter(
                 organization_id__in=nameless_pks
-            ).update(status=Organization.DISABLED)
+            ).update(status=Manufacturer.DISABLED)
 
-        # Disable organizations matching name filters
         rules = PipelineFilter.objects.filter(
             is_active=True,
             field_type=FilterFieldType.MANUFACTURER_NAME,
@@ -378,13 +307,13 @@ class OrganizationAdmin(admin.ModelAdmin):
 
         name_count = 0
         if rules.exists():
-            qs = Organization.objects.exclude(company_name="")
+            qs = Manufacturer.objects.exclude(company_name="")
             for org in qs.iterator():
                 for rule in rules:
                     if rule.matches(org.company_name):
-                        OrganizationProfile.objects.update_or_create(
+                        ManufacturerProfile.objects.update_or_create(
                             organization=org,
-                            defaults={"status": Organization.DISABLED},
+                            defaults={"status": Manufacturer.DISABLED},
                         )
                         name_count += 1
                         break
@@ -399,11 +328,10 @@ class OrganizationAdmin(admin.ModelAdmin):
             self.message_user(request, f"Disabled {total} org(s): {', '.join(parts)}.", messages.SUCCESS)
         else:
             self.message_user(request, "No new organizations to disable.", messages.INFO)
-        return HttpResponseRedirect(reverse("admin:catalog_organization_changelist"))
+        return HttpResponseRedirect(reverse("admin:catalog_manufacturer_changelist"))
 
     def purge_filtered_view(self, request):
         from django.http import HttpResponseRedirect, HttpResponseNotAllowed
-        from catalog.models import PipelineFilter, Product, SupplierLink, AwardHistory
 
         if request.method != "POST":
             return HttpResponseNotAllowed(["POST"])
@@ -414,10 +342,10 @@ class OrganizationAdmin(admin.ModelAdmin):
         )
         if not rules.exists():
             self.message_user(request, "No active manufacturer name filters found.", messages.INFO)
-            return HttpResponseRedirect(reverse("admin:catalog_organization_changelist"))
+            return HttpResponseRedirect(reverse("admin:catalog_manufacturer_changelist"))
 
         matched_pks = []
-        for org in Organization.objects.iterator():
+        for org in Manufacturer.objects.iterator():
             for rule in rules:
                 if rule.matches(org.company_name):
                     matched_pks.append(org.pk)
@@ -425,165 +353,22 @@ class OrganizationAdmin(admin.ModelAdmin):
 
         if not matched_pks:
             self.message_user(request, "No matching organizations to purge.", messages.INFO)
-            return HttpResponseRedirect(reverse("admin:catalog_organization_changelist"))
+            return HttpResponseRedirect(reverse("admin:catalog_manufacturer_changelist"))
 
-        # Collect affected CatalogItem PKs before deletion
-        affected_catalog_pks = set(
-            SupplierLink.objects.filter(organization_id__in=matched_pks)
-                .values_list("catalog_item_id", flat=True)
-        ) | set(
-            Product.objects.filter(manufacturer_id__in=matched_pks)
-                .values_list("catalog_item_id", flat=True)
-        ) | set(
-            AwardHistory.objects.filter(awardee_id__in=matched_pks)
-                .values_list("catalog_item_id", flat=True)
-        )
-        affected_catalog_pks.discard(None)
-
-        deleted_count, deleted_detail = Organization.objects.filter(pk__in=matched_pks).delete()
-
-        # Refresh denormalized counts
-        if affected_catalog_pks:
-            for item in CatalogItem.objects.filter(pk__in=affected_catalog_pks):
-                item.supplier_count = item.supplier_links.count()
-                item.product_count = item.products.count()
-                item.award_count = item.awards.count()
-                item.save(update_fields=["supplier_count", "product_count", "award_count"])
+        deleted_count, deleted_detail = Manufacturer.objects.filter(pk__in=matched_pks).delete()
 
         parts = [f"{model}: {count}" for model, count in deleted_detail.items() if count]
         self.message_user(
             request,
-            f"Purged {len(matched_pks)} org(s) ({deleted_count} objects total: {', '.join(parts)}). "
-            f"Refreshed counts on {len(affected_catalog_pks)} catalog item(s).",
+            f"Purged {len(matched_pks)} org(s) ({deleted_count} objects total: {', '.join(parts)}).",
             messages.SUCCESS,
         )
-        return HttpResponseRedirect(reverse("admin:catalog_organization_changelist"))
-
-    @admin.action(description="Enrich selected from SAM.gov (max 50)")
-    def enrich_from_sam(self, request, queryset):
-        MAX_BATCH = 50
-        if queryset.count() > MAX_BATCH:
-            self.message_user(
-                request,
-                f"Select at most {MAX_BATCH} organizations at a time to avoid API rate limits.",
-                messages.ERROR,
-            )
-            return
-
-        cage_codes = list(
-            queryset.exclude(cage_code="")
-            .values_list("cage_code", flat=True)
-        )
-        if not cage_codes:
-            self.message_user(request, "No CAGE codes to look up.", messages.WARNING)
-            return
-
-        from catalog.services.sam_client import SAMGovClient
-        if not SAMGovClient.is_configured():
-            self.message_user(request, "SAM_GOV_API_KEY is not configured.", messages.ERROR)
-            return
-
-        with SAMGovClient() as client:
-            results = client.lookup_cages_batch(cage_codes)
-
-        updated = 0
-        for org in queryset.filter(cage_code__in=results.keys()):
-            info = results[org.cage_code]
-            changed_fields = []
-            if info.get("website") and not org.website:
-                org.website = info["website"]
-                changed_fields.append("website")
-            if info.get("uei") and not org.uei:
-                org.uei = info["uei"]
-                changed_fields.append("uei")
-            if changed_fields:
-                org.save(update_fields=changed_fields)
-                updated += 1
-
-        self.message_user(
-            request,
-            f"SAM.gov: looked up {len(cage_codes)} CAGE(s), "
-            f"got {len(results)} result(s), updated {updated} org(s). "
-            f"({client.api_calls_made} API call(s))",
-            messages.SUCCESS,
-        )
+        return HttpResponseRedirect(reverse("admin:catalog_manufacturer_changelist"))
 
     def display_name_col(self, obj):
         return obj.display_name
     display_name_col.short_description = "Name"
     display_name_col.admin_order_field = "company_name"
-
-
-# =============================================================================
-# Distributor Stats
-# =============================================================================
-
-@admin.register(DistributorStats)
-class DistributorStatsAdmin(admin.ModelAdmin):
-    list_display = (
-        "org_display", "award_count", "total_award_value", "nsn_count", "is_active",
-    )
-    list_filter = ("is_active",)
-    search_fields = ("organization__company_name", "organization__cage_code")
-    raw_id_fields = ("organization",)
-    ordering = ("-total_award_value",)
-    list_per_page = 50
-
-    def org_display(self, obj):
-        return f"{obj.organization.cage_code or '--'} - {obj.organization.company_name}"
-    org_display.short_description = "Organization"
-    org_display.admin_order_field = "organization__company_name"
-
-
-# =============================================================================
-# Catalog Items
-# =============================================================================
-
-@admin.register(CatalogItem)
-class CatalogItemAdmin(admin.ModelAdmin):
-    list_display = (
-        "nsn", "nomenclature", "part_numbers_short", "price_display",
-        "distributor_use", "supplier_count", "award_count", "opportunity_count",
-    )
-    list_filter = ("distributor_use", "fsc")
-    search_fields = ("nsn", "nomenclature", "part_numbers")
-    raw_id_fields = ("fsc",)
-    ordering = ("nsn",)
-    list_per_page = 50
-    inlines = [CatalogPricingInline, CatalogSpecificationsInline, SupplierLinkInline, AwardHistoryInline]
-
-    fieldsets = (
-        ("Identification", {
-            "fields": ("nsn", "niin", "nomenclature", "part_numbers", "fsc"),
-        }),
-        ("Flags & Counts", {
-            "fields": (
-                "distributor_use", "is_active",
-                "supplier_count", "product_count", "award_count", "opportunity_count",
-            ),
-        }),
-        ("Raw Data", {
-            "fields": ("raw_api_response",),
-            "classes": ("collapse",),
-        }),
-    )
-
-    def part_numbers_short(self, obj):
-        pn = obj.part_numbers
-        if len(pn) > 60:
-            return pn[:60] + "..."
-        return pn
-    part_numbers_short.short_description = "Part Numbers"
-
-    def price_display(self, obj):
-        try:
-            pricing = obj.pricing
-            if pricing.unit_price:
-                return f"${pricing.unit_price:,.2f}"
-        except CatalogPricing.DoesNotExist:
-            pass
-        return "--"
-    price_display.short_description = "Unit Price"
 
 
 # =============================================================================
@@ -593,50 +378,43 @@ class CatalogItemAdmin(admin.ModelAdmin):
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
     list_display = (
-        "display_name", "nsn_display", "manufacturer_display",
+        "display_name", "nsn", "manufacturer_display",
         "part_number", "price_display", "source", "is_active", "view_on_site_link",
     )
-    list_filter = ("source", "is_active", "catalog_item__fsc")
+    list_filter = ("source", "is_active", "fsc")
     search_fields = (
-        "catalog_item__nsn", "catalog_item__nomenclature",
+        "nsn", "nomenclature",
         "part_number", "name",
         "manufacturer__company_name", "manufacturer__cage_code",
     )
-    raw_id_fields = ("catalog_item", "manufacturer")
+    raw_id_fields = ("manufacturer", "fsc")
     ordering = ("-created_at",)
     list_per_page = 50
-    list_select_related = ("catalog_item", "catalog_item__pricing", "manufacturer", "manufacturer__profile")
+    list_select_related = ("manufacturer", "manufacturer__profile")
     inlines = [ProductSpecificationInline]
 
     fieldsets = (
         ("Product Info", {
             "fields": (
-                "name", "description", "part_number", "source", "is_active",
+                "name", "description", "part_number",
+                "nsn", "nomenclature", "price", "fsc", "unit_of_issue",
+                "source", "is_active",
             ),
         }),
         ("Links", {
-            "fields": ("catalog_item", "manufacturer"),
+            "fields": ("manufacturer",),
         }),
     )
 
-    def nsn_display(self, obj):
-        return obj.catalog_item.nsn if obj.catalog_item else "--"
-    nsn_display.short_description = "NSN"
-
     def price_display(self, obj):
-        if obj.catalog_item:
-            try:
-                pricing = obj.catalog_item.pricing
-                if pricing.unit_price:
-                    return f"${pricing.unit_price:,.2f}"
-            except CatalogPricing.DoesNotExist:
-                pass
+        if obj.price:
+            return f"${obj.price:,.2f}"
         return "--"
     price_display.short_description = "Price"
 
     def manufacturer_display(self, obj):
         name = obj.manufacturer.display_name
-        url = reverse("admin:catalog_organization_change", args=[obj.manufacturer.pk])
+        url = reverse("admin:catalog_manufacturer_change", args=[obj.manufacturer.pk])
         return format_html('<a href="{}">{}</a>', url, name)
     manufacturer_display.short_description = "Manufacturer"
 
@@ -644,133 +422,3 @@ class ProductAdmin(admin.ModelAdmin):
         url = f"/products/{obj.manufacturer.slug}/{obj.part_number_slug}/"
         return format_html('<a href="{}" target="_blank">View</a>', url)
     view_on_site_link.short_description = "Public Page"
-
-
-# =============================================================================
-# Purchase Transactions (FOIA data)
-# =============================================================================
-
-@admin.register(PurchaseTransaction)
-class PurchaseTransactionAdmin(admin.ModelAdmin):
-    list_display = (
-        "nsn", "item_name_short", "manufacturer_name", "supplier_name",
-        "quantity", "unit_price", "extended_price", "transaction_date",
-        "department", "agency",
-    )
-    list_filter = ("department", "source_file")
-    search_fields = (
-        "nsn", "item_name", "manufacturer_name", "supplier_name",
-        "part_number_raw", "manufacturer_part_number",
-    )
-    raw_id_fields = ("catalog_item", "manufacturer")
-    ordering = ("-transaction_date",)
-    list_per_page = 50
-    date_hierarchy = "transaction_date"
-
-    readonly_fields = (
-        "nsn", "catalog_item", "item_name", "manufacturer_name",
-        "manufacturer_part_number", "manufacturer", "supplier_name",
-        "quantity", "unit_of_measure", "unit_price", "extended_price",
-        "transaction_date", "department", "agency", "source_of_supply",
-        "part_number_raw", "source_file", "created_at",
-    )
-
-    def item_name_short(self, obj):
-        name = obj.item_name
-        if len(name) > 50:
-            return name[:50] + "..."
-        return name
-    item_name_short.short_description = "Item"
-
-    def has_add_permission(self, request):
-        return False
-
-    def has_change_permission(self, request, obj=None):
-        return False
-
-
-# =============================================================================
-# Opportunities
-# =============================================================================
-
-SOURCE_BADGE_COLORS = {
-    "dibbs": "#28a745",
-    "sam": "#007bff",
-    "sled": "#fd7e14",
-}
-
-
-@admin.register(Opportunity)
-class OpportunityAdmin(admin.ModelAdmin):
-    list_display = (
-        "source_badge", "source_id", "title", "nsn",
-        "estimated_value", "posted_date", "agency",
-    )
-    list_filter = ("source_type", "status", "agency")
-    search_fields = ("source_id", "opp_key", "title", "nsn")
-    list_select_related = ("catalog_item",)
-    raw_id_fields = ("catalog_item",)
-    ordering = ("-posted_date",)
-    list_per_page = 50
-    date_hierarchy = "posted_date"
-
-    def source_badge(self, obj):
-        color = SOURCE_BADGE_COLORS.get(obj.source_type, "#6c757d")
-        label = obj.get_source_type_display()
-        return format_html(
-            '<span style="background:{}; color:#fff; padding:2px 8px; '
-            'border-radius:4px; font-size:11px; font-weight:bold;">{}</span>',
-            color, label,
-        )
-    source_badge.short_description = "Source"
-    source_badge.admin_order_field = "source_type"
-
-
-# =============================================================================
-# Market Opportunities
-# =============================================================================
-
-@admin.register(MarketOpportunity)
-class MarketOpportunityAdmin(admin.ModelAdmin):
-    list_display = (
-        "nsn_display", "rating", "has_reseller_wins", "distributor_use",
-        "has_active_opportunity", "total_reseller_awards", "total_award_value",
-        "score_display",
-    )
-    list_filter = ("rating", "has_reseller_wins", "distributor_use", "has_active_opportunity")
-    search_fields = ("catalog_item__nsn", "catalog_item__nomenclature")
-    raw_id_fields = ("catalog_item",)
-    ordering = ("-total_award_value",)
-    list_per_page = 50
-
-    readonly_fields = (
-        "catalog_item", "rating", "manufacturer_cage_codes", "reseller_cage_codes",
-        "has_reseller_wins", "distributor_use", "has_active_opportunity",
-        "total_reseller_awards", "total_award_value",
-        "latest_reseller_award_date", "avg_reseller_unit_cost",
-        "analysis_notes",
-    )
-
-    def nsn_display(self, obj):
-        return f"{obj.catalog_item.nsn} -- {obj.catalog_item.nomenclature[:40]}"
-    nsn_display.short_description = "NSN"
-
-    def score_display(self, obj):
-        score = obj.opportunity_score
-        if score >= 70:
-            color = "#28a745"
-        elif score >= 40:
-            color = "#ffc107"
-        else:
-            color = "#dc3545"
-        return format_html(
-            '<span style="color: {}; font-weight: bold;">{}/100</span>',
-            color, score,
-        )
-    score_display.short_description = "Score"
-
-    def has_add_permission(self, request):
-        return False
-
-    def has_change_permission(self, request, obj=None):
-        return False

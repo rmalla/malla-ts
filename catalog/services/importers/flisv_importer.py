@@ -1,22 +1,12 @@
 """
 FLISV Characteristics Importer — streams FLISV.CSV (50M rows, 2.2GB)
-to enrich CatalogItem records with fully decoded physical characteristics
-stored in CatalogSpecifications, and propagated to ProductSpecification.
+to enrich Product records with decoded physical characteristics
+stored as ProductSpecification rows.
 
 Data files (in /imports/):
-  FLISV.zip   → FLISV.CSV    (50M rows) — coded characteristics per NIIN
-  MRD_1.zip   → MRD0107.CSV             — MRC code definitions
-              → MRD0300.CSV             — reply decode table
-
-Decode chain:
-  1. MRC code  → MRD0107 → attribute name (e.g. ABHP → "OVERALL LENGTH")
-  2. MODE_CODE determines reply format:
-     - D: coded reply → look up (reply_table, code) in MRD0300
-     - J: numeric with prefix → [unit_code][qualifier_code][number]
-          unit from reply_tbl_1 (e.g. AA05: A=INCHES, L=MILLIMETERS)
-          qualifier from reply_tbl_2 (e.g. AC20: A=NOMINAL, B=MINIMUM)
-     - E: cleartext — reply is the value as-is
-     - A: numeric count
+  FLISV.zip   -> FLISV.CSV    (50M rows) — coded characteristics per NIIN
+  MRD_1.zip   -> MRD0107.CSV             — MRC code definitions
+              -> MRD0300.CSV             — reply decode table
 """
 
 import csv
@@ -31,8 +21,8 @@ from collections import defaultdict
 from django.db import transaction
 
 from catalog.constants import DLA_DATA_DIR, JobType, LogLevel
-from catalog.models import CatalogItem
-from catalog.models.catalog import CatalogSpecifications, Product, ProductSpecification
+from catalog.models import Product
+from catalog.models.catalog import ProductSpecification
 from .base import BaseImporter
 
 logger = logging.getLogger(__name__)
@@ -52,7 +42,6 @@ DIMENSION_KEYWORDS = frozenset({
 })
 WEIGHT_KEYWORDS = frozenset({"weight", "mass"})
 MATERIAL_KEYWORDS = frozenset({"material", "alloy", "composition", "metal"})
-# Exclude these from material categorization (they contain "material" but aren't materials)
 MATERIAL_EXCLUDE = frozenset({"hazardous", "classification", "code", "handling"})
 COLOR_KEYWORDS = frozenset({"color", "hue", "tint"})
 ELECTRICAL_KEYWORDS = frozenset({
@@ -64,7 +53,6 @@ TEMPERATURE_KEYWORDS = frozenset({"temperature", "thermal", "heat"})
 PRESSURE_KEYWORDS = frozenset({"pressure", "psi", "torque"})
 CAPACITY_KEYWORDS = frozenset({"capacity", "volume", "flow", "rate", "speed", "rpm"})
 
-# Friendly group names for specifications display
 GROUP_MAP = {
     "dimensions": "Dimensions",
     "weight": "Weight",
@@ -77,37 +65,8 @@ GROUP_MAP = {
     "other": "General",
 }
 
-# Tier 1 extraction: (category, slug_key) → model field name
-# These get extracted into dedicated DB columns for filtering/search
-TIER1_MAP = {
-    ("material", None): "material",
-    ("dimensions", "overall_length"): "overall_length",
-    ("dimensions", "overall_width"): "overall_width",
-    ("dimensions", "overall_height"): "overall_height",
-    ("dimensions", "overall_diameter"): "overall_diameter",
-    ("weight", "weight"): "weight",
-    ("weight", "vehicle_curb_weight"): "weight",
-    ("weight", "weight_per_unit_measure"): "weight",
-    ("color", None): "color",
-    ("other", "end_item_identification"): "end_item_identification",
-    ("other", "special_features"): "special_features",
-}
-
-# Max lengths for Tier 1 CharField fields
-TIER1_MAX_LEN = {
-    "material": 500,
-    "end_item_identification": 500,
-    "overall_length": 200,
-    "overall_width": 200,
-    "overall_height": 200,
-    "overall_diameter": 200,
-    "weight": 200,
-    "color": 200,
-}
-
 
 def _categorize(attr_name):
-    """Assign an attribute to a display category."""
     lower = attr_name.lower()
     for kw in DIMENSION_KEYWORDS:
         if kw in lower:
@@ -117,7 +76,6 @@ def _categorize(attr_name):
             return "weight"
     for kw in MATERIAL_KEYWORDS:
         if kw in lower:
-            # Exclude false positives like "HAZARDOUS MATERIAL CLASSIFICATION CODE"
             if any(ex in lower for ex in MATERIAL_EXCLUDE):
                 return "other"
             return "material"
@@ -139,27 +97,13 @@ def _categorize(attr_name):
     return "other"
 
 
-def _slug(name):
-    """'OVERALL LENGTH' → 'overall_length'."""
-    return re.sub(r'[^a-z0-9]+', '_', name.lower()).strip('_')
-
-
 def _label(name):
-    """'overall_length' or 'OVERALL LENGTH' → 'Overall Length'."""
     return name.replace("_", " ").strip().title()
-
-
-def _flatten_value(val):
-    """Convert value (string or list) to a display string."""
-    if isinstance(val, list):
-        return "; ".join(str(v) for v in val)
-    return str(val) if val is not None else ""
 
 
 # ── Decode tables ────────────────────────────────────────────────────────
 
 def _load_decode_tables(log_fn):
-    """Load MRC definitions and reply decode tables from MRD_1.zip."""
     mrc_defs = {}
     reply_decode = {}
 
@@ -196,17 +140,13 @@ def _load_decode_tables(log_fn):
 
 
 def _decode_reply(mrc, mode, raw, mrc_defs, reply_decode):
-    """Decode a single FLISV reply → (attr_name, display_value)."""
     defn = mrc_defs.get(mrc)
     if not defn:
         return mrc, raw
 
     attr_name = defn["name"] or mrc
 
-    if mode == "E":
-        return attr_name, raw
-
-    if mode == "A":
+    if mode in ("E", "A"):
         return attr_name, raw
 
     if mode == "D":
@@ -241,17 +181,10 @@ def _decode_reply(mrc, mode, raw, mrc_defs, reply_decode):
     return attr_name, raw
 
 
-def _build_enrichment(attrs):
-    """Organize [(attr_name, value), ...] into:
-    - characteristics: nested JSON (legacy format, kept for reference)
-    - tier1: dict of dedicated field values
-    - specifications: flat list of {label, value, group} for display
-
-    Returns (characteristics, tier1, specifications).
-    """
-    characteristics = {}
-    tier1 = {}
+def _build_specs(attrs):
+    """Build a list of {group, label, value} from decoded attributes."""
     specifications = []
+    seen = set()
 
     for attr_name, value in attrs:
         if not attr_name or not value:
@@ -260,96 +193,32 @@ def _build_enrichment(attrs):
             continue
 
         category = _categorize(attr_name)
-        key = _slug(attr_name)
         group = GROUP_MAP.get(category, category.title())
+        label = _label(attr_name)
 
-        # ── Build specifications list (Tier 2) ──
+        key = (label, value)
+        if key in seen:
+            continue
+        seen.add(key)
+
         specifications.append({
-            "label": _label(attr_name),
-            "value": value,
             "group": group,
+            "label": label,
+            "value": value,
         })
 
-        # ── Extract Tier 1 fields ──
-        # Check direct value categories (material, color)
-        if category in ("material", "color"):
-            t1_key = (category, None)
-        else:
-            t1_key = (category, key)
-
-        if t1_key in TIER1_MAP:
-            field = TIER1_MAP[t1_key]
-            if field == "special_features":
-                # Accumulate special features (can have multiple)
-                existing = tier1.get(field, "")
-                if existing and value not in existing:
-                    tier1[field] = f"{existing}; {value}"
-                else:
-                    tier1[field] = value
-            elif category in ("material", "color"):
-                # Accumulate material/color
-                existing = tier1.get(field, "")
-                if existing and value not in existing:
-                    tier1[field] = f"{existing}; {value}"
-                else:
-                    tier1[field] = value
-            elif field not in tier1:
-                # First match wins for dimension/weight fields
-                tier1[field] = value
-
-        # ── Build characteristics JSON (legacy nested format) ──
-        if category in ("material", "color"):
-            existing = characteristics.get(category)
-            if existing and value not in existing:
-                characteristics[category] = f"{existing}; {value}"
-            else:
-                characteristics[category] = value
-        else:
-            if category not in characteristics:
-                characteristics[category] = {}
-            cat_dict = characteristics[category]
-            existing = cat_dict.get(key)
-            if existing is None:
-                cat_dict[key] = value
-            elif isinstance(existing, list):
-                if value not in existing:
-                    existing.append(value)
-            elif existing != value:
-                cat_dict[key] = [existing, value]
-
-    # Clean empty categories
-    characteristics = {k: v for k, v in characteristics.items() if v}
-
-    # Truncate Tier 1 values to max lengths
-    for field, max_len in TIER1_MAX_LEN.items():
-        if field in tier1:
-            tier1[field] = tier1[field][:max_len]
-
-    # Deduplicate specs (same label+value can appear if MRC repeated)
-    seen = set()
-    unique_specs = []
-    for spec in specifications:
-        key = (spec["label"], spec["value"])
-        if key not in seen:
-            seen.add(key)
-            unique_specs.append(spec)
-
-    return characteristics, tier1, unique_specs
+    return specifications
 
 
 # ── Importer class ───────────────────────────────────────────────────────
 
-class NullClient:
-    api_calls_made = 0
-
-
 class FLISVImporter(BaseImporter):
-    """Enrich CatalogItem records with fully decoded FLISV characteristics."""
+    """Enrich Products with FLISV characteristics as ProductSpecification rows."""
 
     job_type = JobType.FLISV_ENRICH
 
     def __init__(self, stdout=None):
-        super().__init__(client=NullClient(), stdout=stdout)
+        super().__init__(stdout=stdout)
 
     def run(self, batch_size=10000, **kwargs):
         if not FLISV_ZIP.exists():
@@ -362,34 +231,33 @@ class FLISVImporter(BaseImporter):
         mrc_defs, reply_decode = _load_decode_tables(self.log)
         gc.collect()
 
-        # Phase 2: Build NIIN lookup + detect already-enriched items
-        self.log("Phase 2: Building NIIN → PK lookup...")
-        niin_to_pk = {}
-        done_pks = set(
-            CatalogSpecifications.objects.values_list("catalog_item_id", flat=True)
+        # Phase 2: Build NIIN -> product PKs lookup, detect already-enriched
+        self.log("Phase 2: Building NIIN -> Product lookup...")
+        niin_to_product_pks = defaultdict(list)
+        already_enriched_product_pks = set(
+            ProductSpecification.objects.values_list("product_id", flat=True).distinct()
         )
-        already_done = set()
 
-        for nsn, pk in CatalogItem.objects.values_list(
-            "nsn", "pk"
-        ).iterator(chunk_size=10000):
+        for nsn, pk in Product.objects.values_list("nsn", "pk").iterator(chunk_size=10000):
+            if not nsn:
+                continue
             parts = nsn.split("-")
             if len(parts) == 4:
                 niin = parts[1] + parts[2] + parts[3]
-                niin_to_pk[niin] = pk
-                if pk in done_pks:
-                    already_done.add(niin)
+                if pk not in already_enriched_product_pks:
+                    niin_to_product_pks[niin].append(pk)
 
-        del done_pks  # free memory
-        target_niins = set(niin_to_pk.keys()) - already_done
-        self.log(f"  {len(niin_to_pk):,} catalog NIINs, {len(already_done):,} already enriched")
-        self.log(f"  {len(target_niins):,} NIINs to enrich")
+        target_niins = set(niin_to_product_pks.keys())
+        total_products = sum(len(pks) for pks in niin_to_product_pks.values())
+        self.log(f"  {len(target_niins):,} NIINs to enrich ({total_products:,} products)")
+        self.log(f"  {len(already_enriched_product_pks):,} products already have specs")
+
+        del already_enriched_product_pks
+        gc.collect()
 
         if not target_niins:
-            self.log("All NIINs already have characteristics — nothing to do.")
+            self.log("All products already have specifications — nothing to do.")
             return
-
-        gc.collect()
 
         # Phase 3: Stream FLISV.CSV
         self.log("Phase 3: Scanning FLISV.CSV (50M rows)...")
@@ -427,7 +295,7 @@ class FLISVImporter(BaseImporter):
                     niins_in_batch.add(niin)
 
                     if len(niins_in_batch) >= batch_size:
-                        u, e = self._flush(niin_attrs, niin_to_pk)
+                        u, e = self._flush(niin_attrs, niin_to_product_pks)
                         updated += u
                         errored += e
                         niin_attrs.clear()
@@ -443,131 +311,54 @@ class FLISVImporter(BaseImporter):
         finally:
             zf.close()
 
-        # Final flush
         if niin_attrs:
-            u, e = self._flush(niin_attrs, niin_to_pk)
+            u, e = self._flush(niin_attrs, niin_to_product_pks)
             updated += u
             errored += e
 
-        self.log(f"Complete: {row_count:,} rows scanned, {updated:,} enriched, {errored:,} errors")
+        self.log(f"Complete: {row_count:,} rows scanned, {updated:,} products enriched, {errored:,} errors")
 
         self.job.records_fetched = row_count
         self.job.records_updated = updated
         self.job.records_errored = errored
         self.job.save(update_fields=["records_fetched", "records_updated", "records_errored"])
 
-    def _flush(self, niin_attrs, niin_to_pk):
-        """Build enrichment data and create CatalogSpecifications + ProductSpecification records."""
-        pks_needed = [niin_to_pk[n] for n in niin_attrs if n in niin_to_pk]
-        if not pks_needed:
-            return 0, 0
-
-        # Get CatalogItems for nomenclature backfill
-        existing = {
-            obj.pk: obj
-            for obj in CatalogItem.objects.filter(pk__in=pks_needed).only(
-                "pk", "nsn", "nomenclature"
-            )
-        }
-
-        specs_to_create = []
-        items_to_update = []
+    def _flush(self, niin_attrs, niin_to_product_pks):
+        """Create ProductSpecification rows for all products matching these NIINs."""
+        product_specs_to_create = []
+        products_enriched = 0
 
         for niin, attrs in niin_attrs.items():
-            pk = niin_to_pk.get(niin)
-            if not pk or pk not in existing:
+            product_pks = niin_to_product_pks.get(niin)
+            if not product_pks:
                 continue
 
-            obj = existing[pk]
-            characteristics, tier1, specifications = _build_enrichment(attrs)
-            if not characteristics and not tier1:
+            specifications = _build_specs(attrs)
+            if not specifications:
                 continue
 
-            specs_to_create.append(CatalogSpecifications(
-                catalog_item_id=pk,
-                material=tier1.get("material", ""),
-                overall_length=tier1.get("overall_length", ""),
-                overall_width=tier1.get("overall_width", ""),
-                overall_height=tier1.get("overall_height", ""),
-                overall_diameter=tier1.get("overall_diameter", ""),
-                weight=tier1.get("weight", ""),
-                color=tier1.get("color", ""),
-                end_item_identification=tier1.get("end_item_identification", ""),
-                special_features=tier1.get("special_features", ""),
-                specifications_json=specifications,
-                characteristics_json=characteristics,
-                source="flisv",
-            ))
+            for product_pk in product_pks:
+                for idx, spec in enumerate(specifications):
+                    product_specs_to_create.append(ProductSpecification(
+                        product_id=product_pk,
+                        group=spec["group"],
+                        label=spec["label"],
+                        value=spec["value"],
+                        sort_order=idx,
+                    ))
+                products_enriched += 1
 
-            # Backfill empty nomenclature from ITEM NAME MRC
-            if not obj.nomenclature:
-                for attr_name, value in attrs:
-                    if attr_name.upper() == "ITEM NAME" and value:
-                        obj.nomenclature = value[:500]
-                        items_to_update.append(obj)
-                        break
-
-        if not specs_to_create:
+        if not product_specs_to_create:
             return 0, 0
 
         try:
             with transaction.atomic():
-                CatalogSpecifications.objects.bulk_create(
-                    specs_to_create, ignore_conflicts=True
-                )
-                if items_to_update:
-                    CatalogItem.objects.bulk_update(
-                        items_to_update, ["nomenclature"], batch_size=2000
-                    )
-
-            # Populate ProductSpecification for linked Products
-            created_catalog_pks = [s.catalog_item_id for s in specs_to_create]
-            self._create_product_specs(created_catalog_pks, specs_to_create)
-
-            return len(specs_to_create), 0
-        except Exception as e:
-            self.log(f"  Batch error: {e}", level=LogLevel.WARNING)
-            return 0, len(specs_to_create)
-
-    def _create_product_specs(self, catalog_pks, catalog_specs):
-        """Create ProductSpecification rows for Products linked to the enriched CatalogItems."""
-        # Build lookup: catalog_item_id → specifications list
-        specs_by_pk = {
-            cs.catalog_item_id: cs.specifications_json
-            for cs in catalog_specs
-            if cs.specifications_json
-        }
-        if not specs_by_pk:
-            return
-
-        # Find Products linked to these catalog items that don't already have specs
-        products = Product.objects.filter(
-            catalog_item_id__in=catalog_pks,
-            is_active=True,
-        ).exclude(
-            specs__isnull=False,
-        ).values_list("pk", "catalog_item_id")
-
-        product_specs_to_create = []
-        for product_pk, catalog_item_id in products:
-            spec_list = specs_by_pk.get(catalog_item_id, [])
-            for idx, spec in enumerate(spec_list):
-                product_specs_to_create.append(ProductSpecification(
-                    product_id=product_pk,
-                    group=spec.get("group", "General"),
-                    label=spec.get("label", ""),
-                    value=spec.get("value", ""),
-                    sort_order=idx,
-                ))
-
-        if product_specs_to_create:
-            try:
                 ProductSpecification.objects.bulk_create(
                     product_specs_to_create,
                     ignore_conflicts=True,
                     batch_size=5000,
                 )
-            except Exception as e:
-                self.log(
-                    f"  ProductSpec batch error: {e}", level=LogLevel.WARNING
-                )
+            return products_enriched, 0
+        except Exception as e:
+            self.log(f"  Batch error: {e}", level=LogLevel.WARNING)
+            return 0, products_enriched

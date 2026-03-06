@@ -24,8 +24,9 @@ _NOISE_WORDS = frozenset({
 })
 
 
-def slugify_manufacturer(company_name, cage_code):
-    """Build a short, recognizable URL slug from a manufacturer name."""
+def slugify_manufacturer(name, cage_code):
+    """Build a short, recognizable URL slug from a manufacturer name (display_name preferred)."""
+    company_name = name
     if not company_name or not company_name.strip():
         if cage_code:
             return cage_code.lower()
@@ -58,7 +59,7 @@ def slugify_manufacturer(company_name, cage_code):
 
 # ── Models ──────────────────────────────────────────────────────────────────
 
-class Organization(models.Model):
+class Manufacturer(models.Model):
     """Company/vendor identified by CAGE code, with optional marketing fields.
 
     Records with a cage_code represent government-registered entities.
@@ -122,6 +123,7 @@ class Organization(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        db_table = "catalog_organization"
         verbose_name = "Manufacturer"
         verbose_name_plural = "Manufacturers"
         ordering = ["company_name"]
@@ -145,7 +147,7 @@ class Organization(models.Model):
             profile = self.profile
             if profile.display_name:
                 return profile.display_name
-        except OrganizationProfile.DoesNotExist:
+        except ManufacturerProfile.DoesNotExist:
             pass
         return self.company_name or self.cage_code or "(unnamed)"
 
@@ -154,7 +156,7 @@ class Organization(models.Model):
         """Status from profile, defaulting to NEUTRAL."""
         try:
             return self.profile.status
-        except OrganizationProfile.DoesNotExist:
+        except ManufacturerProfile.DoesNotExist:
             return self.NEUTRAL
 
     def save(self, *args, **kwargs):
@@ -164,7 +166,14 @@ class Organization(models.Model):
 
         # Auto-generate slug when missing or company_name changed
         if not self.slug or self.company_name != self._original_company_name:
-            base = slugify_manufacturer(self.company_name, self.cage_code)
+            # Prefer display_name from profile for slug generation
+            slug_name = self.company_name
+            try:
+                if self.pk and hasattr(self, 'profile') and self.profile.display_name:
+                    slug_name = self.profile.display_name
+            except ManufacturerProfile.DoesNotExist:
+                pass
+            base = slugify_manufacturer(slug_name, self.cage_code)
             if not base:
                 super().save(*args, **kwargs)
                 self.slug = f"org-{self.pk}"
@@ -172,7 +181,7 @@ class Organization(models.Model):
                 self._original_company_name = self.company_name
                 return
             candidate = base
-            qs = Organization.objects.exclude(pk=self.pk)
+            qs = Manufacturer.objects.exclude(pk=self.pk)
             if qs.filter(slug=candidate).exists():
                 if self.cage_code:
                     candidate = f"{base}-{self.cage_code.lower()}"
@@ -189,17 +198,17 @@ class Organization(models.Model):
 
 
 # Backward compat aliases
-Manufacturer = Organization
-CAGEEntity = Organization
+Organization = Manufacturer
+CAGEEntity = Manufacturer
 
 
-# ── OrganizationProfile ────────────────────────────────────────────────────
+# ── ManufacturerProfile ────────────────────────────────────────────────────
 
-class OrganizationProfile(models.Model):
-    """Display/marketing data for an organization."""
+class ManufacturerProfile(models.Model):
+    """Display/marketing data for a manufacturer."""
 
     organization = models.OneToOneField(
-        Organization, on_delete=models.CASCADE, related_name="profile"
+        Manufacturer, on_delete=models.CASCADE, related_name="profile"
     )
     display_name = models.CharField(max_length=255, blank=True)
     description = models.TextField(blank=True)
@@ -209,48 +218,24 @@ class OrganizationProfile(models.Model):
     display_order = models.IntegerField(default=100)
     status = models.SmallIntegerField(
         choices=[
-            (Organization.DISABLED, "Disabled"),
-            (Organization.NEUTRAL, "Neutral"),
-            (Organization.ENABLED, "Enabled"),
+            (Manufacturer.DISABLED, "Disabled"),
+            (Manufacturer.NEUTRAL, "Neutral"),
+            (Manufacturer.ENABLED, "Enabled"),
         ],
-        default=Organization.NEUTRAL,
+        default=Manufacturer.NEUTRAL,
         db_index=True,
     )
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = "Organization Profile"
-        verbose_name_plural = "Organization Profiles"
+        db_table = "catalog_organizationprofile"
+        verbose_name = "Manufacturer Profile"
+        verbose_name_plural = "Manufacturer Profiles"
         ordering = ["display_order", "organization__company_name"]
 
     def __str__(self):
         return f"Profile for {self.organization}"
 
 
-# ── DistributorStats ───────────────────────────────────────────────────────
-
-class DistributorStats(models.Model):
-    """Aggregate distributor statistics for an organization."""
-
-    organization = models.OneToOneField(
-        Organization, on_delete=models.CASCADE, related_name="distributor_stats"
-    )
-    award_count = models.PositiveIntegerField(default=0)
-    total_award_value = models.DecimalField(
-        max_digits=14, decimal_places=2, default=0
-    )
-    nsn_count = models.PositiveIntegerField(default=0)
-    is_active = models.BooleanField(default=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        verbose_name = "Distributor Stats"
-        verbose_name_plural = "Distributor Stats"
-        ordering = ["-total_award_value"]
-
-    def __str__(self):
-        return f"Distributor stats for {self.organization}"
-
-
-# Backward compat alias
-Distributor = DistributorStats
+# Backward compat aliases
+OrganizationProfile = ManufacturerProfile

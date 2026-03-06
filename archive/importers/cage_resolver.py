@@ -1,7 +1,7 @@
 import logging
 
 from catalog.constants import JobType, LogLevel
-from catalog.models import Organization
+from catalog.models import Manufacturer
 from .base import BaseImporter
 
 logger = logging.getLogger(__name__)
@@ -89,12 +89,12 @@ class CAGEResolver(BaseImporter):
 
     def run(self, batch_size=50, retry_failed=False, **kwargs):
         if retry_failed:
-            unresolved = Organization.objects.filter(
+            unresolved = Manufacturer.objects.filter(
                 resolved_from_api=True, company_name=""
             )[:batch_size]
             self.log(f"Retrying {len(unresolved)} previously-failed CAGE codes")
         else:
-            unresolved = Organization.objects.filter(
+            unresolved = Manufacturer.objects.filter(
                 resolved_from_api=False, company_name=""
             )[:batch_size]
 

@@ -8,7 +8,7 @@
 <section class="page-header page-header--with-image" style="background-image: url('{% static 'images/hero-nsn.jpg' %}')">
     <div class="container">
         <h1>Products Catalog</h1>
-        <p class="page-intro">Government-spec parts and equipment with verified manufacturers, part numbers, and pricing.</p>
+        <p class="page-intro">Quality parts and equipment with verified manufacturers, part numbers, and pricing.</p>
     </div>
 </section>
 
@@ -19,7 +19,6 @@
         <nav class="catalog-subnav">
             <a href="{% url 'product_list' %}" class="catalog-subnav-link active">Products</a>
             <a href="{% url 'manufacturer_list' %}" class="catalog-subnav-link">Manufacturers</a>
-            <a href="{% url 'nsn_search' %}" class="catalog-subnav-link">NSN Lookup</a>
         </nav>
 
         <!-- Search Form -->
@@ -29,7 +28,7 @@
                     <input type="text"
                            name="q"
                            value="{{ query }}"
-                           placeholder="Search by product name, NSN, part number, or manufacturer..."
+                           placeholder="Search by product name, part number, or manufacturer..."
                            class="nsn-search-input"
                            autocomplete="off" />
                     <button type="submit" class="btn btn-primary nsn-search-btn">Search</button>
@@ -50,21 +49,15 @@
                 {% for item in products %}
                 <div class="nsn-result-card">
                     <div class="nsn-result-header">
-                        <a href="{% url 'product_detail' item.manufacturer.slug item.part_number_slug %}" class="nsn-link">{{ item.catalog_item.nsn }}</a>
-                        {% if item.catalog_item.fsc %}
-                        <span class="fsc-badge">FSC {{ item.catalog_item.fsc.code }}</span>
+                        <a href="{% url 'product_detail' item.manufacturer.slug item.part_number_slug %}" class="nsn-link">{{ item.display_name }}</a>
+                        {% if item.price %}
+                        <span class="nsn-price" style="float: right; font-size: 1.1rem;">${{ item.price|floatformat:2 }}</span>
                         {% endif %}
                     </div>
-                    <h3 class="nsn-item-name">
-                        {{ item.display_name }}
-                        {% if item.catalog_item.pricing.unit_price %}
-                        <span class="nsn-price" style="float: right; font-size: 1.1rem;">${{ item.catalog_item.pricing.unit_price|floatformat:2 }}</span>
-                        {% endif %}
-                    </h3>
                     <p class="nsn-description">
-                        Manufacturer: <strong><a href="{% url 'manufacturer_detail' item.manufacturer.slug %}">{{ item.manufacturer.company_name|default:item.manufacturer.cage_code }}</a></strong>
+                        Manufacturer: <strong><a href="{% url 'manufacturer_detail' item.manufacturer.slug %}">{{ item.manufacturer.display_name }}</a></strong>
                         {% if item.part_number %} | Part No: <strong>{{ item.part_number }}</strong>{% endif %}
-                        {% if item.catalog_item.unit_of_issue %} | Unit: {{ item.catalog_item.unit_of_issue }}{% endif %}
+                        {% if item.unit_of_issue %} | Unit: {{ item.unit_of_issue }}{% endif %}
                     </p>
                     <a href="{% url 'product_detail' item.manufacturer.slug item.part_number_slug %}" class="btn btn-secondary btn-sm">View Details</a>
                 </div>
@@ -105,7 +98,7 @@
         <!-- CTA Box -->
         <div class="nsn-cta-box">
             <h3>Need a Specific Part?</h3>
-            <p>Can't find what you're looking for? Our procurement team can source any government-spec part or NSN item.</p>
+            <p>Can't find what you're looking for? Our procurement team can source any part or equipment you need.</p>
             <a href="/contact/" class="btn btn-accent btn-lg">Request a Quote</a>
         </div>
 

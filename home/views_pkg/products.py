@@ -8,8 +8,7 @@ from django.shortcuts import redirect, render, get_object_or_404
 from django.views.decorators.cache import cache_page
 from django_ratelimit.decorators import ratelimit
 
-from catalog.models import Organization, Product, CatalogItem, OrganizationProfile
-from catalog.models.catalog import CatalogPricing, CatalogSpecifications
+from catalog.models import Manufacturer, Product, ManufacturerProfile
 
 
 def format_nsn(raw):
@@ -34,16 +33,16 @@ def product_list(request):
 
     products = Product.objects.filter(
         is_active=True,
-        manufacturer__profile__status=Organization.ENABLED,
+        manufacturer__profile__status=Manufacturer.ENABLED,
     ).select_related(
-        "catalog_item", "catalog_item__fsc", "catalog_item__pricing", "manufacturer"
-    ).order_by("catalog_item__nomenclature", "manufacturer__company_name")
+        "fsc", "manufacturer", "manufacturer__profile"
+    ).order_by("nomenclature", "manufacturer__company_name")
 
     if query:
         raw_query = re.sub(r"[^0-9A-Za-z ]", "", query)
         products = products.filter(
-            Q(catalog_item__nomenclature__icontains=query)
-            | Q(catalog_item__nsn__icontains=raw_query)
+            Q(nomenclature__icontains=query)
+            | Q(nsn__icontains=raw_query)
             | Q(name__icontains=query)
             | Q(part_number__icontains=query)
             | Q(manufacturer__company_name__icontains=query)
@@ -66,49 +65,33 @@ def product_list(request):
 def product_detail(request, manufacturer_slug, part_slug):
     """Detail view for a single product."""
     product = get_object_or_404(
-        Product.objects.select_related(
-            "catalog_item", "catalog_item__fsc", "manufacturer"
-        ),
+        Product.objects.select_related("fsc", "manufacturer", "manufacturer__profile"),
         manufacturer__slug=manufacturer_slug,
-        manufacturer__profile__status=Organization.ENABLED,
+        manufacturer__profile__status=Manufacturer.ENABLED,
         part_number_slug=part_slug,
     )
 
-    catalog = product.catalog_item
-    formatted_nsn = format_nsn(catalog.nsn) if catalog else ""
-
-    # Pricing
-    pricing = None
-    if catalog:
-        pricing = CatalogPricing.objects.filter(catalog_item=catalog).first()
-
-    # Catalog specifications (FLISV physical characteristics)
-    catalog_specs = None
-    if catalog:
-        catalog_specs = CatalogSpecifications.objects.filter(catalog_item=catalog).first()
+    formatted_nsn = format_nsn(product.nsn) if product.nsn else ""
 
     # Product specifications (key-value pairs)
     specs = list(product.specs.all().order_by("group", "sort_order", "label"))
 
     # Related products: same FSC, different product
     related = []
-    if catalog and catalog.fsc:
+    if product.fsc:
         related = (
-            Product.objects.filter(catalog_item__fsc=catalog.fsc, is_active=True)
+            Product.objects.filter(fsc=product.fsc, is_active=True)
             .exclude(pk=product.pk)
-            .select_related("catalog_item", "manufacturer")
-            .order_by("catalog_item__nomenclature")[:6]
+            .select_related("manufacturer", "manufacturer__profile")
+            .order_by("nomenclature")[:6]
         )
 
     context = {
         "supplier": product,  # backward compat for templates
         "product": product,
-        "catalog": catalog,
         "cage": product.manufacturer,  # backward compat
         "manufacturer": product.manufacturer,
         "formatted_nsn": formatted_nsn,
-        "pricing": pricing,
-        "catalog_specs": catalog_specs,
         "specifications": specs,
         "related_products": related,
         "format_nsn": format_nsn,
@@ -120,15 +103,15 @@ def product_detail(request, manufacturer_slug, part_slug):
 def manufacturer_detail(request, slug):
     """Manufacturer page with company info and product listings."""
     org = get_object_or_404(
-        Organization.objects.select_related("profile"),
+        Manufacturer.objects.select_related("profile"),
         slug=slug,
-        profile__status=Organization.ENABLED,
+        profile__status=Manufacturer.ENABLED,
     )
 
     products = (
         Product.objects.filter(manufacturer=org, is_active=True)
-        .select_related("catalog_item", "catalog_item__fsc")
-        .order_by("catalog_item__nomenclature")
+        .select_related("fsc")
+        .order_by("nomenclature")
     )
 
     context = {
@@ -148,8 +131,8 @@ def manufacturer_list(request):
     query = request.GET.get("q", "").strip()
     page_number = request.GET.get("page", 1)
 
-    manufacturers = Organization.objects.filter(
-        profile__status=Organization.ENABLED,
+    manufacturers = Manufacturer.objects.select_related("profile").filter(
+        profile__status=Manufacturer.ENABLED,
         products__is_active=True,
     ).distinct().annotate(
         product_count=models.Count("products", filter=models.Q(products__is_active=True))
@@ -178,9 +161,9 @@ def product_redirect(request, nsn):
     raw_nsn = normalize_nsn(nsn)
     product = (
         Product.objects.filter(
-            catalog_item__nsn=raw_nsn,
+            nsn=raw_nsn,
             is_active=True,
-            manufacturer__profile__status=Organization.ENABLED,
+            manufacturer__profile__status=Manufacturer.ENABLED,
         )
         .select_related("manufacturer")
         .order_by("manufacturer__company_name")

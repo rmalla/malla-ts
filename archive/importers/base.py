@@ -12,13 +12,19 @@ class BaseImporter:
     """
     Abstract base for all importers.
 
-    Wraps ImportJob lifecycle: mark_running -> run -> mark_completed/failed.
+    Wraps ImportJob lifecycle: mark_running → run → mark_completed/failed.
     Provides dual logging to Python logger + ImportJobLog table.
     """
 
     job_type = None  # Subclasses must set this
 
-    def __init__(self, stdout=None):
+    def __init__(self, client, stdout=None):
+        """
+        Args:
+            client: HigherGovClient instance
+            stdout: Optional management command stdout for CLI output
+        """
+        self.client = client
         self.stdout = stdout
         self.job = None
         self.filter_service = None
@@ -41,6 +47,8 @@ class BaseImporter:
             )
 
         if self.stdout:
+            from django.core.management.base import OutputWrapper
+
             style_fn = None
             if hasattr(self.stdout, "style"):
                 if level == LogLevel.ERROR:
@@ -68,13 +76,13 @@ class BaseImporter:
         )
         return self.job
 
-    # Shared parse helpers
+    # Shared parse helpers (delegated to parsers module)
     _parse_decimal = staticmethod(parse_decimal)
     _parse_int = staticmethod(parse_int)
     _parse_date = staticmethod(parse_date)
 
     def run(self, **kwargs):
-        """Override in subclasses."""
+        """Override in subclasses. Implement the actual import logic."""
         raise NotImplementedError
 
     def safe_run(self, **kwargs):
@@ -86,6 +94,7 @@ class BaseImporter:
         try:
             self.job.mark_running()
 
+            # Initialize filter service for this pipeline stage
             from catalog.services.filter_service import FilterService
             self.filter_service = FilterService(stage=self.job_type)
             self.log(
@@ -94,11 +103,14 @@ class BaseImporter:
 
             self.run(**kwargs)
 
+            # Persist filter stats
+            self.job.api_calls_made = self.client.api_calls_made
             self.job.records_filtered = sum(
                 self.filter_service._match_counts.values()
             )
-            self.job.save(update_fields=["records_filtered"])
+            self.job.save(update_fields=["api_calls_made", "records_filtered"])
 
+            # Log filter summary
             summary = self.filter_service.get_summary()
             if any(v > 0 for v in summary.values()):
                 for rule_str, count in summary.items():
@@ -110,9 +122,12 @@ class BaseImporter:
                 f"Completed: {self.job.records_created} created, "
                 f"{self.job.records_updated} updated, "
                 f"{self.job.records_errored} errored, "
-                f"{self.job.records_filtered} filtered"
+                f"{self.job.records_filtered} filtered "
+                f"(API calls: {self.job.api_calls_made})"
             )
         except Exception as e:
+            self.job.api_calls_made = self.client.api_calls_made
+            self.job.save(update_fields=["api_calls_made"])
             self.job.mark_failed(str(e))
             self.log(
                 f"Failed: {e}\n{traceback.format_exc()}",
