@@ -12,17 +12,20 @@ document.addEventListener("DOMContentLoaded",function(){
     var field=el.getAttribute("data-field");
 
     el.querySelectorAll(".tri-toggle__seg").forEach(function(seg,i){
-      seg.addEventListener("click",function(){
+      seg.addEventListener("click",function(e){
+        e.preventDefault();
+        e.stopPropagation();
         var newVal=vals[i];
         if(el.getAttribute("data-val")===newVal) return;
 
         input.value=newVal;
         el.setAttribute("data-val",newVal);
-        input.dispatchEvent(new Event("change",{bubbles:true}));
 
         if(pk){
           var url,fd=new FormData();
-          fd.append("csrfmiddlewaretoken",getCookie("csrftoken"));
+          var csrf=getCookie("csrftoken");
+          if(!csrf){var ci=document.querySelector("[name=csrfmiddlewaretoken]");if(ci)csrf=ci.value;}
+          fd.append("csrfmiddlewaretoken",csrf);
 
           if(field){
             // Generic field toggle (is_manufacturer, etc.)
@@ -36,16 +39,19 @@ document.addEventListener("DOMContentLoaded",function(){
           }
 
           fetch(url,{method:"POST",body:fd,credentials:"same-origin"})
-            .then(function(r){return r.json();})
+            .then(function(r){
+              if(!r.ok){console.error("Toggle HTTP",r.status,r.statusText);return r.text().then(function(t){throw new Error("HTTP "+r.status+": "+t.substring(0,200));});}
+              return r.json();
+            })
             .then(function(data){
-              if(!data.ok){
+              if(data&&!data.ok){
                 console.error("Toggle error:",data.error);
                 alert("Failed to update: "+(data.error||"unknown error"));
               }
             })
             .catch(function(err){
               console.error("Toggle fetch error:",err);
-              alert("Network error updating toggle.");
+              alert("Error updating toggle: "+err.message);
             });
         }
       });

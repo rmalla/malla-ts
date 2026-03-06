@@ -206,6 +206,7 @@ class ManufacturerAdmin(admin.ModelAdmin):
         "city", "state", "country",
         "manufacturer_toggle",
         "status_toggle",
+        "view_on_site_link",
     )
     list_filter = (
         ProfileStatusFilter, ProductCountFilter, CountryGroupFilter,
@@ -221,9 +222,12 @@ class ManufacturerAdmin(admin.ModelAdmin):
         css = {"all": ("catalog/css/toggle.css",)}
         js = ("catalog/js/toggle.js",)
 
-    readonly_fields = ("profile_display_name",)
+    readonly_fields = ("profile_display_name", "manufacturer_toggle_detail", "status_toggle_detail", "view_on_site_detail")
 
     fieldsets = (
+        (None, {
+            "fields": ("view_on_site_detail", "manufacturer_toggle_detail", "status_toggle_detail"),
+        }),
         ("Identification", {
             "fields": (
                 "cage_code", "company_name", "profile_display_name", "slug", "website", "uei",
@@ -270,6 +274,54 @@ class ManufacturerAdmin(admin.ModelAdmin):
             val=val, pk=obj.pk,
         )
     manufacturer_toggle.short_description = "Manufacturer"
+
+    def view_on_site_detail(self, obj):
+        try:
+            status = obj.profile.status
+        except ManufacturerProfile.DoesNotExist:
+            status = 0
+        if obj.pk and obj.slug and status == Manufacturer.ENABLED:
+            url = reverse("manufacturer_detail", args=[obj.slug])
+            return format_html('<a href="{}" target="_blank" style="font-size:14px">View on site &rarr;</a>', url)
+        return "-"
+    view_on_site_detail.short_description = "Frontend"
+
+    def manufacturer_toggle_detail(self, obj):
+        if not obj.pk:
+            return "--"
+        val = obj.is_manufacturer
+        return format_html(
+            '<div class="tri-toggle" data-val="{val}" data-pk="{pk}" data-field="is_manufacturer">'
+            '<input type="hidden" name="_mfr_{pk}" value="{val}">'
+            '<div class="tri-toggle__track">'
+            '<div class="tri-toggle__seg">&#x2212;</div>'
+            '<div class="tri-toggle__seg">&#x25CF;</div>'
+            '<div class="tri-toggle__seg">&#x2713;</div>'
+            '<div class="tri-toggle__thumb"></div>'
+            '</div></div>',
+            val=val, pk=obj.pk,
+        )
+    manufacturer_toggle_detail.short_description = "Is Confirmed Manufacturer"
+
+    def status_toggle_detail(self, obj):
+        if not obj.pk:
+            return "--"
+        try:
+            val = obj.profile.status
+        except ManufacturerProfile.DoesNotExist:
+            val = 0
+        return format_html(
+            '<div class="tri-toggle" data-val="{val}" data-pk="{pk}">'
+            '<input type="hidden" name="_status_{pk}" value="{val}">'
+            '<div class="tri-toggle__track">'
+            '<div class="tri-toggle__seg">&#x2212;</div>'
+            '<div class="tri-toggle__seg">&#x25CF;</div>'
+            '<div class="tri-toggle__seg">&#x2713;</div>'
+            '<div class="tri-toggle__thumb"></div>'
+            '</div></div>',
+            val=val, pk=obj.pk,
+        )
+    status_toggle_detail.short_description = "Status"
 
     def profile_display_name(self, obj):
         try:
@@ -505,6 +557,17 @@ class ManufacturerAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         return super().get_queryset(request).annotate(product_count=Count("products"))
 
+    def view_on_site_link(self, obj):
+        try:
+            status = obj.profile.status
+        except ManufacturerProfile.DoesNotExist:
+            status = 0
+        if obj.slug and status == Manufacturer.ENABLED:
+            url = reverse("manufacturer_detail", args=[obj.slug])
+            return format_html('<a href="{}" target="_blank">View</a>', url)
+        return "-"
+    view_on_site_link.short_description = "Site"
+
     def display_name_col(self, obj):
         return obj.display_name
     display_name_col.short_description = "Name"
@@ -543,10 +606,10 @@ class ManufacturerVerifiedFilter(admin.SimpleListFilter):
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
     list_display = (
-        "display_name", "nsn", "manufacturer_display",
+        "display_name", "nsn", "filter_manufacturer_link", "manufacturer_display",
         "part_number", "price_display", "source", "is_active", "google_search_link", "view_on_site_link",
     )
-    list_filter = ("source", "is_active", ManufacturerVerifiedFilter, "fsc")
+    list_filter = ("source", "is_active", ManufacturerVerifiedFilter)
     search_fields = (
         "nsn", "nomenclature",
         "part_number", "name",
@@ -576,6 +639,11 @@ class ProductAdmin(admin.ModelAdmin):
             return f"${obj.price:,.2f}"
         return "--"
     price_display.short_description = "Price"
+
+    def filter_manufacturer_link(self, obj):
+        url = reverse("admin:catalog_product_changelist") + f"?manufacturer__id__exact={obj.manufacturer_id}"
+        return format_html('<a href="{}">F</a>', url)
+    filter_manufacturer_link.short_description = "F"
 
     def manufacturer_display(self, obj):
         name = obj.manufacturer.display_name
