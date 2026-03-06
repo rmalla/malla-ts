@@ -1,4 +1,5 @@
 from django.contrib import admin, messages
+from django.db.models import Count
 from django.http import JsonResponse
 from django.urls import path, reverse
 from django.utils.html import format_html
@@ -148,7 +149,7 @@ class ProfileStatusFilter(admin.SimpleListFilter):
 class ManufacturerAdmin(admin.ModelAdmin):
     change_list_template = "admin/catalog/manufacturer/change_list.html"
     list_display = (
-        "display_name_col", "cage_code", "slug",
+        "display_name_col", "product_count_col", "cage_code", "slug",
         "website",
         "city", "state", "country",
         "is_manufacturer", "is_awardee",
@@ -286,19 +287,36 @@ class ManufacturerAdmin(admin.ModelAdmin):
         return JsonResponse({"ok": True})
 
     def apply_name_filters_view(self, request):
+        from django.db.models import Q
         from django.http import HttpResponseRedirect, HttpResponseNotAllowed
 
         if request.method != "POST":
             return HttpResponseNotAllowed(["POST"])
 
-        nameless = Manufacturer.objects.filter(company_name="")
-        nameless_pks = list(nameless.values_list("pk", flat=True))
-        nameless_count = len(nameless_pks)
+        # 1. Disable nameless manufacturers
+        nameless_pks = list(
+            Manufacturer.objects.filter(company_name="").values_list("pk", flat=True)
+        )
+        nameless_count = 0
         if nameless_pks:
-            ManufacturerProfile.objects.filter(
+            nameless_count = ManufacturerProfile.objects.filter(
                 organization_id__in=nameless_pks
             ).update(status=Manufacturer.DISABLED)
+            # Create profiles for nameless orgs that don't have one
+            existing = set(
+                ManufacturerProfile.objects.filter(
+                    organization_id__in=nameless_pks
+                ).values_list("organization_id", flat=True)
+            )
+            missing = [pk for pk in nameless_pks if pk not in existing]
+            if missing:
+                ManufacturerProfile.objects.bulk_create(
+                    [ManufacturerProfile(organization_id=pk, status=Manufacturer.DISABLED) for pk in missing],
+                    ignore_conflicts=True,
+                )
+                nameless_count += len(missing)
 
+        # 2. Build a single Q filter from all active name rules
         rules = PipelineFilter.objects.filter(
             is_active=True,
             field_type=FilterFieldType.MANUFACTURER_NAME,
@@ -307,16 +325,35 @@ class ManufacturerAdmin(admin.ModelAdmin):
 
         name_count = 0
         if rules.exists():
-            qs = Manufacturer.objects.exclude(company_name="")
-            for org in qs.iterator():
-                for rule in rules:
-                    if rule.matches(org.company_name):
-                        ManufacturerProfile.objects.update_or_create(
-                            organization=org,
-                            defaults={"status": Manufacturer.DISABLED},
-                        )
-                        name_count += 1
-                        break
+            q = Q()
+            for rule in rules:
+                q |= Q(company_name__icontains=rule.field_value)
+
+            matched_pks = list(
+                Manufacturer.objects.exclude(company_name="")
+                .filter(q)
+                .values_list("pk", flat=True)
+            )
+
+            if matched_pks:
+                # Update existing profiles
+                name_count = ManufacturerProfile.objects.filter(
+                    organization_id__in=matched_pks
+                ).exclude(status=Manufacturer.DISABLED).update(status=Manufacturer.DISABLED)
+
+                # Create profiles for orgs that don't have one
+                existing = set(
+                    ManufacturerProfile.objects.filter(
+                        organization_id__in=matched_pks
+                    ).values_list("organization_id", flat=True)
+                )
+                missing = [pk for pk in matched_pks if pk not in existing]
+                if missing:
+                    ManufacturerProfile.objects.bulk_create(
+                        [ManufacturerProfile(organization_id=pk, status=Manufacturer.DISABLED) for pk in missing],
+                        ignore_conflicts=True,
+                    )
+                    name_count += len(missing)
 
         total = nameless_count + name_count
         if total:
@@ -331,6 +368,7 @@ class ManufacturerAdmin(admin.ModelAdmin):
         return HttpResponseRedirect(reverse("admin:catalog_manufacturer_changelist"))
 
     def purge_filtered_view(self, request):
+        from django.db.models import Q
         from django.http import HttpResponseRedirect, HttpResponseNotAllowed
 
         if request.method != "POST":
@@ -344,31 +382,41 @@ class ManufacturerAdmin(admin.ModelAdmin):
             self.message_user(request, "No active manufacturer name filters found.", messages.INFO)
             return HttpResponseRedirect(reverse("admin:catalog_manufacturer_changelist"))
 
-        matched_pks = []
-        for org in Manufacturer.objects.iterator():
-            for rule in rules:
-                if rule.matches(org.company_name):
-                    matched_pks.append(org.pk)
-                    break
+        q = Q()
+        for rule in rules:
+            q |= Q(company_name__icontains=rule.field_value)
 
-        if not matched_pks:
+        matched_qs = Manufacturer.objects.filter(q)
+        match_count = matched_qs.count()
+
+        if not match_count:
             self.message_user(request, "No matching organizations to purge.", messages.INFO)
             return HttpResponseRedirect(reverse("admin:catalog_manufacturer_changelist"))
 
-        deleted_count, deleted_detail = Manufacturer.objects.filter(pk__in=matched_pks).delete()
+        deleted_count, deleted_detail = matched_qs.delete()
 
         parts = [f"{model}: {count}" for model, count in deleted_detail.items() if count]
         self.message_user(
             request,
-            f"Purged {len(matched_pks)} org(s) ({deleted_count} objects total: {', '.join(parts)}).",
+            f"Purged {match_count} org(s) ({deleted_count} objects total: {', '.join(parts)}).",
             messages.SUCCESS,
         )
         return HttpResponseRedirect(reverse("admin:catalog_manufacturer_changelist"))
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).annotate(product_count=Count("products"))
 
     def display_name_col(self, obj):
         return obj.display_name
     display_name_col.short_description = "Name"
     display_name_col.admin_order_field = "company_name"
+
+    def product_count_col(self, obj):
+        count = obj.product_count
+        url = reverse("admin:catalog_product_changelist") + f"?manufacturer__id__exact={obj.pk}"
+        return format_html('<a href="{}">{}</a>', url, count)
+    product_count_col.short_description = "Products"
+    product_count_col.admin_order_field = "product_count"
 
 
 # =============================================================================
@@ -379,7 +427,7 @@ class ManufacturerAdmin(admin.ModelAdmin):
 class ProductAdmin(admin.ModelAdmin):
     list_display = (
         "display_name", "nsn", "manufacturer_display",
-        "part_number", "price_display", "source", "is_active", "view_on_site_link",
+        "part_number", "price_display", "source", "is_active", "google_search_link", "view_on_site_link",
     )
     list_filter = ("source", "is_active", "fsc")
     search_fields = (
@@ -417,6 +465,13 @@ class ProductAdmin(admin.ModelAdmin):
         url = reverse("admin:catalog_manufacturer_change", args=[obj.manufacturer.pk])
         return format_html('<a href="{}">{}</a>', url, name)
     manufacturer_display.short_description = "Manufacturer"
+
+    def google_search_link(self, obj):
+        from urllib.parse import quote
+        query = f"{obj.manufacturer.display_name} {obj.part_number}"
+        url = f"https://www.google.com/search?q={quote(query)}"
+        return format_html('<a href="{}" target="_blank">Search</a>', url)
+    google_search_link.short_description = "Google"
 
     def view_on_site_link(self, obj):
         url = f"/products/{obj.manufacturer.slug}/{obj.part_number_slug}/"

@@ -3,6 +3,8 @@ import re
 from django.db import models
 from wagtail.images.models import Image
 
+from catalog.services.name_formatter import format_manufacturer_name
+
 
 # ── Organization slug generation ────────────────────────────────────────────
 
@@ -166,13 +168,7 @@ class Manufacturer(models.Model):
 
         # Auto-generate slug when missing or company_name changed
         if not self.slug or self.company_name != self._original_company_name:
-            # Prefer display_name from profile for slug generation
-            slug_name = self.company_name
-            try:
-                if self.pk and hasattr(self, 'profile') and self.profile.display_name:
-                    slug_name = self.profile.display_name
-            except ManufacturerProfile.DoesNotExist:
-                pass
+            slug_name = format_manufacturer_name(self.company_name) or self.company_name
             base = slugify_manufacturer(slug_name, self.cage_code)
             if not base:
                 super().save(*args, **kwargs)

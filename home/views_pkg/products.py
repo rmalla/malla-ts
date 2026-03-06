@@ -45,6 +45,7 @@ def product_list(request):
             | Q(nsn__icontains=raw_query)
             | Q(name__icontains=query)
             | Q(part_number__icontains=query)
+            | Q(manufacturer__profile__display_name__icontains=query)
             | Q(manufacturer__company_name__icontains=query)
             | Q(manufacturer__cage_code__icontains=query)
         ).distinct()
@@ -140,7 +141,8 @@ def manufacturer_list(request):
 
     if query:
         manufacturers = manufacturers.filter(
-            models.Q(company_name__icontains=query)
+            models.Q(profile__display_name__icontains=query)
+            | models.Q(company_name__icontains=query)
             | models.Q(cage_code__icontains=query)
         )
 
