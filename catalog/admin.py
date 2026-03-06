@@ -17,6 +17,21 @@ from .models import (
 
 
 # =============================================================================
+# Helpers
+# =============================================================================
+
+def _prefixed_search(queryset, search_term, prefix_map):
+    """Parse 'prefix:value' and filter on a single field. Returns (qs, use_default)."""
+    if ":" in search_term:
+        prefix, _, value = search_term.partition(":")
+        value = value.strip()
+        field = prefix_map.get(prefix.strip().lower())
+        if field and value:
+            return queryset.filter(**{f"{field}__icontains": value}), False
+    return queryset, True
+
+
+# =============================================================================
 # Inlines
 # =============================================================================
 
@@ -214,7 +229,26 @@ class ManufacturerAdmin(admin.ModelAdmin):
     )
     list_select_related = ("profile",)
     search_fields = ("cage_code", "company_name", "slug", "uei")
+    search_help_text = "Prefixes: cage: name: slug: uei: product: — or search all fields"
     ordering = ("company_name",)
+
+    _PREFIX_MAP = {"cage": "cage_code", "name": "company_name", "slug": "slug", "uei": "uei"}
+
+    def get_search_results(self, request, queryset, search_term):
+        qs, use_default = _prefixed_search(queryset, search_term, self._PREFIX_MAP)
+        if not use_default:
+            return qs, False
+        # product: prefix — find manufacturers by product nomenclature/name
+        if search_term.startswith("product:"):
+            value = search_term.partition(":")[2].strip()
+            if value:
+                from django.db.models import Q
+                return queryset.filter(
+                    Q(products__nomenclature__icontains=value) |
+                    Q(products__name__icontains=value)
+                ).distinct(), False
+            return queryset, False
+        return super().get_search_results(request, queryset, search_term)
     list_per_page = 50
     inlines = [ManufacturerProfileInline]
 
@@ -603,36 +637,108 @@ class ManufacturerVerifiedFilter(admin.SimpleListFilter):
         return queryset
 
 
+class PublishedFilter(admin.SimpleListFilter):
+    title = "published"
+    parameter_name = "published"
+
+    def lookups(self, request, model_admin):
+        return [
+            ("1", "Published"),
+            ("0", "Not published"),
+        ]
+
+    def queryset(self, request, queryset):
+        val = self.value()
+        if val == "1":
+            return queryset.published()
+        if val == "0":
+            return queryset.exclude(
+                pk__in=queryset.model.objects.published().values("pk")
+            )
+        return queryset
+
+
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
     list_display = (
         "display_name", "nsn", "filter_manufacturer_link", "manufacturer_display",
-        "part_number", "price_display", "source", "is_active", "google_search_link", "view_on_site_link",
+        "part_number", "price_display", "source", "status_toggle", "google_search_link", "view_on_site_link",
     )
-    list_filter = ("source", "is_active", ManufacturerVerifiedFilter)
+    list_filter = ("source", "is_active", PublishedFilter, ManufacturerVerifiedFilter)
     search_fields = (
         "nsn", "nomenclature",
         "part_number", "name",
         "manufacturer__company_name", "manufacturer__cage_code",
     )
+    search_help_text = "Prefixes: nsn: pn: name: mfr: cage: — or search all fields"
     raw_id_fields = ("manufacturer", "fsc")
+
+    _PREFIX_MAP = {
+        "nsn": "nsn", "pn": "part_number", "name": "name",
+        "mfr": "manufacturer__company_name", "cage": "manufacturer__cage_code",
+    }
+
+    def get_search_results(self, request, queryset, search_term):
+        qs, use_default = _prefixed_search(queryset, search_term, self._PREFIX_MAP)
+        if not use_default:
+            return qs, False
+        return super().get_search_results(request, queryset, search_term)
     ordering = ("-created_at",)
     list_per_page = 50
     list_select_related = ("manufacturer", "manufacturer__profile")
     inlines = [ProductSpecificationInline]
 
+    class Media:
+        css = {"all": ("catalog/css/toggle.css",)}
+        js = ("catalog/js/toggle.js",)
+
+    readonly_fields = ("status_toggle_detail",)
+
     fieldsets = (
+        (None, {
+            "fields": ("status_toggle_detail",),
+        }),
         ("Product Info", {
             "fields": (
                 "name", "description", "part_number",
                 "nsn", "nomenclature", "price", "fsc", "unit_of_issue",
-                "source", "is_active",
+                "source",
             ),
         }),
         ("Links", {
             "fields": ("manufacturer",),
         }),
     )
+
+    def get_urls(self):
+        custom_urls = [
+            path(
+                "set-field/<int:pk>/",
+                self.admin_site.admin_view(self.set_field_view),
+                name="catalog_product_set_field",
+            ),
+        ]
+        return custom_urls + super().get_urls()
+
+    def set_field_view(self, request, pk):
+        if request.method != "POST":
+            return JsonResponse({"ok": False, "error": "POST required"}, status=405)
+        field = request.POST.get("field", "")
+        if field not in {"is_active"}:
+            return JsonResponse({"ok": False, "error": f"Field '{field}' not allowed"}, status=400)
+        try:
+            value = int(request.POST.get("value", ""))
+        except (ValueError, TypeError):
+            return JsonResponse({"ok": False, "error": "Invalid value"}, status=400)
+        if value not in (-1, 0, 1):
+            return JsonResponse({"ok": False, "error": "Value must be -1, 0, or 1"}, status=400)
+        try:
+            product = Product.objects.get(pk=pk)
+        except Product.DoesNotExist:
+            return JsonResponse({"ok": False, "error": "Not found"}, status=404)
+        setattr(product, field, value)
+        product.save(update_fields=[field])
+        return JsonResponse({"ok": True})
 
     def price_display(self, obj):
         if obj.price:
@@ -658,7 +764,47 @@ class ProductAdmin(admin.ModelAdmin):
         return format_html('<a href="{}" target="_blank">Search</a>', url)
     google_search_link.short_description = "Google"
 
+    def status_toggle(self, obj):
+        val = obj.is_active
+        return format_html(
+            '<div class="tri-toggle" data-val="{val}" data-pk="{pk}" data-field="is_active">'
+            '<input type="hidden" name="_status_{pk}" value="{val}">'
+            '<div class="tri-toggle__track">'
+            '<div class="tri-toggle__seg">&#x2212;</div>'
+            '<div class="tri-toggle__seg">&#x25CF;</div>'
+            '<div class="tri-toggle__seg">&#x2713;</div>'
+            '<div class="tri-toggle__thumb"></div>'
+            '</div></div>',
+            val=val, pk=obj.pk,
+        )
+    status_toggle.short_description = "Status"
+
+    def status_toggle_detail(self, obj):
+        if not obj.pk:
+            return "--"
+        val = obj.is_active
+        return format_html(
+            '<div class="tri-toggle" data-val="{val}" data-pk="{pk}" data-field="is_active">'
+            '<input type="hidden" name="_status_{pk}" value="{val}">'
+            '<div class="tri-toggle__track">'
+            '<div class="tri-toggle__seg">&#x2212;</div>'
+            '<div class="tri-toggle__seg">&#x25CF;</div>'
+            '<div class="tri-toggle__seg">&#x2713;</div>'
+            '<div class="tri-toggle__thumb"></div>'
+            '</div></div>',
+            val=val, pk=obj.pk,
+        )
+    status_toggle_detail.short_description = "Status"
+
     def view_on_site_link(self, obj):
+        if obj.is_active == Product.DISABLED:
+            return "-"
+        if obj.is_active == Product.NEUTRAL:
+            try:
+                if obj.manufacturer.profile.status != Manufacturer.ENABLED:
+                    return "-"
+            except ManufacturerProfile.DoesNotExist:
+                return "-"
         url = f"/products/{obj.manufacturer.slug}/{obj.part_number_slug}/"
         return format_html('<a href="{}" target="_blank">View</a>', url)
     view_on_site_link.short_description = "Public Page"

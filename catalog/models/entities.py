@@ -8,41 +8,34 @@ from catalog.services.name_formatter import format_manufacturer_name
 
 # ── Organization slug generation ────────────────────────────────────────────
 
-_MAX_SLUG_LEN = 20
+_MAX_SLUG_LEN = 60
 
 _NOISE_WORDS = frozenset({
-    # Legal / corporate suffixes
+    # Legal / corporate suffixes only — keep industry terms for SEO
     "inc", "llc", "corp", "corporation", "co", "ltd", "company",
     "incorporated", "limited", "lp", "plc", "gmbh", "sa", "ag",
-    # Generic industry terms
-    "industries", "industry", "technologies", "technology",
-    "systems", "solutions", "services", "products", "manufacturing",
-    "enterprises", "group", "international", "intl", "associates",
-    "division", "holdings", "global", "worldwide", "usa",
     # Common filler
     "the", "of", "and", "for",
-    # TLD fragments (from domain-style names like "Twacomm.Com")
-    "com", "net", "org", "io",
 })
 
 
 def slugify_manufacturer(name, cage_code):
-    """Build a short, recognizable URL slug from a manufacturer name (display_name preferred)."""
+    """Build an SEO-friendly URL slug from a manufacturer name."""
     company_name = name
     if not company_name or not company_name.strip():
         if cage_code:
-            return cage_code.lower()
+            return f"mfr-{cage_code.lower()}"
         return ""
 
     name = company_name.strip().lower()
-    name = name.replace("&", " and ")
+    name = name.replace("&", "-and-")
     tokens = re.split(r"[^a-z0-9]+", name)
     tokens = [t for t in tokens if t]
 
-    significant = [t for t in tokens if t not in _NOISE_WORDS and len(t) > 1]
+    significant = [t for t in tokens if t not in _NOISE_WORDS]
 
     if not significant:
-        significant = tokens[:1]
+        significant = [t for t in tokens if t]
 
     parts = []
     length = 0
@@ -55,7 +48,7 @@ def slugify_manufacturer(name, cage_code):
 
     slug = "-".join(parts)
     if not slug and cage_code:
-        return cage_code.lower()
+        return f"mfr-{cage_code.lower()}"
     return slug
 
 
@@ -182,21 +175,26 @@ class Manufacturer(models.Model):
             base = slugify_manufacturer(slug_name, self.cage_code)
             if not base:
                 super().save(*args, **kwargs)
-                self.slug = f"org-{self.pk}"
+                self.slug = f"mfr-{self.pk}"
                 super().save(update_fields=["slug"])
                 self._original_company_name = self.company_name
                 return
             candidate = base
             qs = Manufacturer.objects.exclude(pk=self.pk)
             if qs.filter(slug=candidate).exists():
-                if self.cage_code:
+                # Append city for geographic disambiguation
+                if self.city:
+                    city_slug = re.sub(r'[^a-z0-9]+', '-', self.city.strip().lower()).strip('-')
+                    if city_slug:
+                        candidate = f"{base}-{city_slug}"
+                # Fall back to cage code
+                if qs.filter(slug=candidate).exists() and self.cage_code:
                     candidate = f"{base}-{self.cage_code.lower()}"
-                else:
+                # Last resort: pk
+                if qs.filter(slug=candidate).exists():
                     if not self.pk:
                         super().save(*args, **kwargs)
                     candidate = f"{base}-{self.pk}"
-                    if qs.filter(slug=candidate).exists():
-                        candidate = f"{base}-{self.pk}"
             self.slug = candidate
 
         super().save(*args, **kwargs)

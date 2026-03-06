@@ -6,7 +6,7 @@ from django.contrib.postgres.search import SearchVectorField
 
 
 def slugify_part_number(part_number):
-    """Create a URL-friendly slug from a part number."""
+    """Create a clean URL slug from a part number."""
     if not part_number or not part_number.strip():
         return ''
     slug = part_number.strip().lower()
@@ -30,6 +30,22 @@ class DataSource(models.TextChoices):
 
 
 # ── Product ────────────────────────────────────────────────────────────────
+
+class ProductQuerySet(models.QuerySet):
+    def published(self):
+        """Products visible on the frontend.
+
+        Visibility rules:
+        - Product ENABLED (1)  → always shown (overrides manufacturer)
+        - Product DISABLED (-1) → never shown (overrides manufacturer)
+        - Product NEUTRAL (0)  → shown only if manufacturer is ENABLED
+        """
+        from catalog.models.entities import Manufacturer
+        return self.exclude(is_active=-1).filter(
+            models.Q(is_active=1)
+            | models.Q(is_active=0, manufacturer__profile__status=Manufacturer.ENABLED)
+        )
+
 
 class Product(models.Model):
     """A product listing on the website. The primary public-facing entity.
@@ -69,8 +85,20 @@ class Product(models.Model):
         help_text="Where this product record came from",
     )
 
-    # Visibility
-    is_active = models.BooleanField(default=True, db_index=True)
+    # Visibility (-1=Disabled, 0=Neutral/unreviewed, 1=Enabled)
+    DISABLED = -1
+    NEUTRAL = 0
+    ENABLED = 1
+    STATUS_CHOICES = [
+        (DISABLED, "Disabled"),
+        (NEUTRAL, "Neutral"),
+        (ENABLED, "Enabled"),
+    ]
+    is_active = models.SmallIntegerField(
+        choices=STATUS_CHOICES, default=NEUTRAL, db_index=True,
+    )
+
+    objects = ProductQuerySet.as_manager()
 
     # Search
     search_vector = SearchVectorField(null=True, blank=True)

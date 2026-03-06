@@ -27,14 +27,14 @@ document.addEventListener("DOMContentLoaded",function(){
           if(!csrf){var ci=document.querySelector("[name=csrfmiddlewaretoken]");if(ci)csrf=ci.value;}
           fd.append("csrfmiddlewaretoken",csrf);
 
+          // Derive base URL: /django-admin/catalog/<model>/
+          var base=el.getAttribute("data-base")||window.location.pathname.replace(/\d+\/change\/$/,"").replace(/\?.*$/,"");
           if(field){
-            // Generic field toggle (is_manufacturer, etc.)
-            url="/django-admin/catalog/manufacturer/set-field/"+pk+"/";
+            url=base+"set-field/"+pk+"/";
             fd.append("field",field);
             fd.append("value",newVal);
           }else{
-            // Legacy profile status toggle
-            url="/django-admin/catalog/manufacturer/set-status/"+pk+"/";
+            url=base+"set-status/"+pk+"/";
             fd.append("status",newVal);
           }
 

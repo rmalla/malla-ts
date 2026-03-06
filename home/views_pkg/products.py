@@ -31,10 +31,7 @@ def product_list(request):
     query = request.GET.get("q", "").strip()
     page_number = request.GET.get("page", 1)
 
-    products = Product.objects.filter(
-        is_active=True,
-        manufacturer__profile__status=Manufacturer.ENABLED,
-    ).select_related(
+    products = Product.objects.published().select_related(
         "fsc", "manufacturer", "manufacturer__profile"
     ).order_by("nomenclature", "manufacturer__company_name")
 
@@ -66,9 +63,8 @@ def product_list(request):
 def product_detail(request, manufacturer_slug, part_slug):
     """Detail view for a single product."""
     product = get_object_or_404(
-        Product.objects.select_related("fsc", "manufacturer", "manufacturer__profile"),
+        Product.objects.published().select_related("fsc", "manufacturer", "manufacturer__profile"),
         manufacturer__slug=manufacturer_slug,
-        manufacturer__profile__status=Manufacturer.ENABLED,
         part_number_slug=part_slug,
     )
 
@@ -81,7 +77,7 @@ def product_detail(request, manufacturer_slug, part_slug):
     related = []
     if product.fsc:
         related = (
-            Product.objects.filter(fsc=product.fsc, is_active=True)
+            Product.objects.published().filter(fsc=product.fsc)
             .exclude(pk=product.pk)
             .select_related("manufacturer", "manufacturer__profile")
             .order_by("nomenclature")[:6]
@@ -110,7 +106,7 @@ def manufacturer_detail(request, slug):
     )
 
     products = (
-        Product.objects.filter(manufacturer=org, is_active=True)
+        Product.objects.published().filter(manufacturer=org)
         .select_related("fsc")
         .order_by("nomenclature")
     )
@@ -135,9 +131,9 @@ def manufacturer_list(request):
 
     manufacturers = Manufacturer.objects.select_related("profile").filter(
         profile__status=Manufacturer.ENABLED,
-        products__is_active=True,
+        products__is_active__gte=0,
     ).distinct().annotate(
-        product_count=models.Count("products", filter=models.Q(products__is_active=True))
+        product_count=models.Count("products", filter=models.Q(products__is_active__gte=0))
     ).order_by("company_name")
 
     if country_filter == "us":
@@ -169,11 +165,7 @@ def product_redirect(request, nsn):
     """Redirect /products/<nsn>/ to the first product for that NSN."""
     raw_nsn = normalize_nsn(nsn)
     product = (
-        Product.objects.filter(
-            nsn=raw_nsn,
-            is_active=True,
-            manufacturer__profile__status=Manufacturer.ENABLED,
-        )
+        Product.objects.published().filter(nsn=raw_nsn)
         .select_related("manufacturer")
         .order_by("manufacturer__company_name")
         .first()
