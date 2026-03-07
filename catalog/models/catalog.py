@@ -158,3 +158,19 @@ class ProductSpecification(models.Model):
 
     def __str__(self):
         return f"{self.label}: {self.value}"
+
+
+# ── FLISVCharacteristic (staging table for FLISV.CSV bulk load) ───────────
+
+class FLISVCharacteristic(models.Model):
+    """Staging table for FLISV.CSV data, loaded via PostgreSQL COPY.
+    Used for fast SQL-based enrichment instead of streaming 50M CSV rows."""
+
+    niin = models.CharField(max_length=9, db_index=True)
+    mrc = models.CharField(max_length=10)
+    mode_code = models.CharField(max_length=1, blank=True)
+    coded_reply = models.TextField()
+
+    class Meta:
+        db_table = "catalog_flisv_characteristic"
+        indexes = [models.Index(fields=["niin"])]

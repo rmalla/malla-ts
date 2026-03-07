@@ -1,12 +1,13 @@
 """
-FLISV Characteristics Importer — streams FLISV.CSV (50M rows, 2.2GB)
+FLISV Characteristics Importer — queries FLISVCharacteristic staging table
 to enrich Product records with decoded physical characteristics
 stored as ProductSpecification rows.
 
 Data files (in /imports/):
-  FLISV.zip   -> FLISV.CSV    (50M rows) — coded characteristics per NIIN
   MRD_1.zip   -> MRD0107.CSV             — MRC code definitions
               -> MRD0300.CSV             — reply decode table
+
+Prerequisite: run `sync_catalog load-flisv` to populate the staging table.
 """
 
 import csv
@@ -22,15 +23,12 @@ from django.db import transaction
 
 from catalog.constants import DLA_DATA_DIR, JobType, LogLevel
 from catalog.models import Product
-from catalog.models.catalog import ProductSpecification
+from catalog.models.catalog import FLISVCharacteristic, ProductSpecification
 from .base import BaseImporter
 
 logger = logging.getLogger(__name__)
 
-FLISV_ZIP = DLA_DATA_DIR / "FLISV.zip"
 MRD_ZIP = DLA_DATA_DIR / "MRD_1.zip"
-
-SLEEP_BETWEEN_BATCHES = 0.05
 
 # ── Categorization keywords ─────────────────────────────────────────────
 
@@ -182,9 +180,16 @@ def _decode_reply(mrc, mode, raw, mrc_defs, reply_decode):
 
 
 def _build_specs(attrs):
-    """Build a list of {group, label, value} from decoded attributes."""
-    specifications = []
-    seen = set()
+    """Build a list of {group, label, value} from decoded attributes.
+
+    Duplicate labels are consolidated into a single spec with values
+    joined by "; " (e.g. multiple Material entries become one).
+    """
+    from collections import OrderedDict
+
+    # Collect unique values per (group, label), preserving order
+    label_data = OrderedDict()
+    seen_values = {}
 
     for attr_name, value in attrs:
         if not attr_name or not value:
@@ -196,15 +201,22 @@ def _build_specs(attrs):
         group = GROUP_MAP.get(category, category.title())
         label = _label(attr_name)
 
-        key = (label, value)
-        if key in seen:
-            continue
-        seen.add(key)
+        key = (group, label)
+        if key not in label_data:
+            label_data[key] = []
+            seen_values[key] = set()
 
+        if value not in seen_values[key]:
+            seen_values[key].add(value)
+            if len(label_data[key]) < 2:
+                label_data[key].append(value)
+
+    specifications = []
+    for (group, label), values in label_data.items():
         specifications.append({
             "group": group,
             "label": label,
-            "value": value,
+            "value": "; ".join(values),
         })
 
     return specifications
@@ -221,10 +233,17 @@ class FLISVImporter(BaseImporter):
         super().__init__(stdout=stdout)
 
     def run(self, batch_size=10000, **kwargs):
-        if not FLISV_ZIP.exists():
-            raise FileNotFoundError(f"FLISV.zip not found at {FLISV_ZIP}")
         if not MRD_ZIP.exists():
             raise FileNotFoundError(f"MRD_1.zip not found at {MRD_ZIP}")
+
+        # Check staging table is populated
+        staging_count = FLISVCharacteristic.objects.count()
+        if staging_count == 0:
+            raise RuntimeError(
+                "FLISVCharacteristic staging table is empty. "
+                "Run 'sync_catalog load-flisv' first."
+            )
+        self.log(f"Staging table has {staging_count:,} rows")
 
         # Phase 1: Load decode tables
         self.log("Phase 1: Loading decode tables...")
@@ -259,66 +278,45 @@ class FLISVImporter(BaseImporter):
             self.log("All products already have specifications — nothing to do.")
             return
 
-        # Phase 3: Stream FLISV.CSV
-        self.log("Phase 3: Scanning FLISV.CSV (50M rows)...")
+        # Phase 3: Query staging table instead of streaming 50M CSV rows
+        self.log("Phase 3: Querying staging table for matching NIINs...")
         updated = 0
         errored = 0
-        row_count = 0
+        rows_matched = 0
 
+        # Process in batches of NIINs
+        niin_list = list(target_niins)
         niin_attrs = defaultdict(list)
-        niins_in_batch = set()
 
-        zf = zipfile.ZipFile(FLISV_ZIP, "r")
-        try:
-            with zf.open("FLISV.CSV") as f:
-                reader = csv.reader(io.TextIOWrapper(f, encoding="utf-8"))
-                next(reader)
+        for i in range(0, len(niin_list), batch_size):
+            batch_niins = niin_list[i:i + batch_size]
 
-                for row in reader:
-                    row_count += 1
+            chars = FLISVCharacteristic.objects.filter(
+                niin__in=batch_niins
+            ).values_list("niin", "mrc", "mode_code", "coded_reply")
 
-                    niin = row[0].strip().zfill(9)
-                    if niin not in target_niins:
-                        continue
+            for niin, mrc, mode, raw_reply in chars.iterator(chunk_size=50000):
+                rows_matched += 1
+                attr_name, value = _decode_reply(
+                    mrc, mode, raw_reply, mrc_defs, reply_decode
+                )
+                niin_attrs[niin].append((attr_name, value))
 
-                    mrc = row[1].strip()
-                    mode = row[2].strip()
-                    raw_reply = row[6].strip()
-
-                    if not mrc or not raw_reply:
-                        continue
-
-                    attr_name, value = _decode_reply(
-                        mrc, mode, raw_reply, mrc_defs, reply_decode
-                    )
-                    niin_attrs[niin].append((attr_name, value))
-                    niins_in_batch.add(niin)
-
-                    if len(niins_in_batch) >= batch_size:
-                        u, e = self._flush(niin_attrs, niin_to_product_pks)
-                        updated += u
-                        errored += e
-                        niin_attrs.clear()
-                        niins_in_batch.clear()
-                        time.sleep(SLEEP_BETWEEN_BATCHES)
-
-                    if row_count % 5_000_000 == 0:
-                        self.log(
-                            f"  FLISV: {row_count:,} rows, "
-                            f"{len(niins_in_batch):,} in batch, "
-                            f"{updated:,} updated so far"
-                        )
-        finally:
-            zf.close()
-
-        if niin_attrs:
             u, e = self._flush(niin_attrs, niin_to_product_pks)
             updated += u
             errored += e
+            niin_attrs.clear()
 
-        self.log(f"Complete: {row_count:,} rows scanned, {updated:,} products enriched, {errored:,} errors")
+            if (i // batch_size + 1) % 10 == 0:
+                self.log(
+                    f"  Batch {i // batch_size + 1}: "
+                    f"{rows_matched:,} rows matched, "
+                    f"{updated:,} products enriched"
+                )
 
-        self.job.records_fetched = row_count
+        self.log(f"Complete: {rows_matched:,} rows matched, {updated:,} products enriched, {errored:,} errors")
+
+        self.job.records_fetched = rows_matched
         self.job.records_updated = updated
         self.job.records_errored = errored
         self.job.save(update_fields=["records_fetched", "records_updated", "records_errored"])

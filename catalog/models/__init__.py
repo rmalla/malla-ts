@@ -6,6 +6,7 @@ from .filters import PipelineFilter
 from .jobs import ImportJob, ImportJobLog
 from .catalog import (
     Product, ProductSpecification,
+    FLISVCharacteristic,
     DataSource,
     slugify_part_number,
 )
@@ -15,6 +16,7 @@ __all__ = [
     "ManufacturerProfile",
     "Product",
     "ProductSpecification",
+    "FLISVCharacteristic",
     "DataSource",
     "PipelineFilter",
     "ImportJob",
