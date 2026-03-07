@@ -1,7 +1,34 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static humanize %}
 
-{% block title %}{{ manufacturer.display_name }} - Manufacturer{% endblock %}
+{% block title %}{{ manufacturer.display_name }} - Manufacturer - {{ product_count }} Product{{ product_count|pluralize }}{% endblock %}
+
+{% block meta_description %}
+<meta name="description" content="{{ manufacturer.display_name }} — Browse {{ product_count }} product{{ product_count|pluralize }} available through Malla Technical Services.{% if manufacturer.city or manufacturer.state %} Located in {{ manufacturer.city }}{% if manufacturer.city and manufacturer.state %}, {% endif %}{{ manufacturer.state }}.{% endif %} Request a quote today." />
+{% endblock %}
+
+{% block canonical_url %}
+<link rel="canonical" href="https://www.malla-ts.com{% url 'manufacturer_detail' manufacturer.slug %}" />
+{% endblock %}
+
+{% block og_tags %}
+<meta property="og:title" content="{{ manufacturer.display_name }} - Manufacturer - Malla Technical Services" />
+<meta property="og:description" content="Browse {{ product_count }} product{{ product_count|pluralize }} from {{ manufacturer.display_name }}. Get pricing and availability from Malla Technical Services." />
+<meta property="og:url" content="https://www.malla-ts.com{% url 'manufacturer_detail' manufacturer.slug %}" />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Malla Technical Services" />
+<meta property="og:image" content="https://malla-ts.com{% static 'images/og-image.png' %}" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:locale" content="en_US" />
+{% endblock %}
+
+{% block twitter_tags %}
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="{{ manufacturer.display_name }} - Manufacturer" />
+<meta name="twitter:description" content="Browse {{ product_count }} product{{ product_count|pluralize }} from {{ manufacturer.display_name }}. Get pricing and availability." />
+<meta name="twitter:image" content="https://malla-ts.com{% static 'images/og-image.png' %}" />
+{% endblock %}
 
 {% block extra_structured_data %}
 <script type="application/ld+json">
@@ -45,12 +72,21 @@
 
                 <!-- Company Info -->
                 <div class="nsn-detail-card">
-                    <h2>Company Information</h2>
+                    <div class="mfr-header-inline">
+                        {% if manufacturer.profile.logo %}
+                        <div class="mfr-header-logo">
+                            <img src="{{ manufacturer.profile.logo.file.url }}" alt="{{ manufacturer.display_name }} logo" loading="lazy" />
+                        </div>
+                        {% endif %}
+                        <div class="mfr-header-text">
+                            <h2>{{ manufacturer.display_name }}</h2>
+                            <p class="mfr-header-sub">
+                                {% if manufacturer.city or manufacturer.state %}{{ manufacturer.city }}{% if manufacturer.city and manufacturer.state %}, {% endif %}{{ manufacturer.state }}{% endif %}
+                                {% if product_count %} &middot; {{ product_count }} product{{ product_count|pluralize }}{% endif %}
+                            </p>
+                        </div>
+                    </div>
                     <table class="nsn-specs-table">
-                        <tr>
-                            <th>Company Name</th>
-                            <td>{{ manufacturer.display_name }}</td>
-                        </tr>
                         {% if manufacturer.city or manufacturer.state or manufacturer.country %}
                         <tr>
                             <th>Location</th>
@@ -63,12 +99,6 @@
                             <td>{{ manufacturer.uei }}</td>
                         </tr>
                         {% endif %}
-                        {% if manufacturer.website %}
-                        <tr>
-                            <th>Website</th>
-                            <td><a href="{{ manufacturer.website }}" target="_blank" rel="noopener">{{ manufacturer.website }}</a></td>
-                        </tr>
-                        {% endif %}
                     </table>
                 </div>
 
@@ -78,19 +108,28 @@
                     {% if products %}
                     <div class="nsn-results-list">
                         {% for item in products %}
-                        <div class="nsn-result-card">
-                            <div class="nsn-result-header">
-                                <a href="{% url 'product_detail' manufacturer.slug item.part_number_slug %}" class="nsn-link">{{ item.get_display_name }}</a>
+                        <div class="nsn-result-card mfr-product-card">
+                            <div class="mfr-product-thumb">
+                                <a href="{% url 'product_detail' manufacturer.slug item.part_number_slug %}">
+                                    {% if manufacturer.profile.logo %}
+                                    <img src="{{ manufacturer.profile.logo.file.url }}" alt="{{ item.get_display_name }}" loading="lazy" />
+                                    {% else %}
+                                    <img src="{% static 'images/logo_malla.png' %}" alt="{{ item.get_display_name }}" class="mfr-product-thumb--fallback" loading="lazy" />
+                                    {% endif %}
+                                </a>
                             </div>
-                            {% if item.part_number %}
-                            <p class="nsn-description">Part Number: <strong>{{ item.part_number }}</strong></p>
-                            {% endif %}
-                            <div class="nsn-result-meta">
-                                {% if item.unit_of_issue %}
-                                <span class="nsn-unit">Unit: {{ item.unit_of_issue }}</span>
+                            <div class="mfr-product-info">
+                                <div class="nsn-result-header">
+                                    <a href="{% url 'product_detail' manufacturer.slug item.part_number_slug %}" class="nsn-link">{{ item.get_display_name }}</a>
+                                </div>
+                                {% if item.part_number %}
+                                <p class="nsn-description">Part Number: <strong>{{ item.part_number }}</strong></p>
                                 {% endif %}
+                                {% if item.price %}
+                                <p class="mfr-product-price">${{ item.price|floatformat:2|intcomma }}</p>
+                                {% endif %}
+                                <a href="{% url 'product_detail' manufacturer.slug item.part_number_slug %}" class="btn btn-secondary btn-sm">View Details</a>
                             </div>
-                            <a href="{% url 'product_detail' manufacturer.slug item.part_number_slug %}" class="btn btn-secondary btn-sm">View Details</a>
                         </div>
                         {% endfor %}
                     </div>

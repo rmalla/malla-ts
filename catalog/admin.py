@@ -63,6 +63,17 @@ class ManufacturerProfileInline(admin.StackedInline):
     extra = 0
     max_num = 1
     raw_id_fields = ("logo",)
+    readonly_fields = ("logo_preview",)
+
+    def logo_preview(self, obj):
+        if obj.logo:
+            return format_html(
+                '<img src="{}" alt="Logo" style="max-width:120px; max-height:120px; '
+                'border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.1); background:#fff;" />',
+                obj.logo.file.url,
+            )
+        return "(no logo)"
+    logo_preview.short_description = "Logo Preview"
 
 
 # =============================================================================
@@ -217,7 +228,7 @@ class CountryGroupFilter(admin.SimpleListFilter):
 class ManufacturerAdmin(admin.ModelAdmin):
     change_list_template = "admin/catalog/manufacturer/change_list.html"
     list_display = (
-        "display_name_col", "product_count_col", "cage_code", "slug",
+        "logo_thumb", "display_name_col", "product_count_col", "cage_code", "slug",
         "website",
         "city", "state", "country",
         "manufacturer_toggle",
@@ -228,7 +239,7 @@ class ManufacturerAdmin(admin.ModelAdmin):
         ProfileStatusFilter, ProductCountFilter, CountryGroupFilter,
         "is_manufacturer", "resolution_status",
     )
-    list_select_related = ("profile",)
+    list_select_related = ("profile", "profile__logo")
     search_fields = ("cage_code", "company_name", "slug", "uei")
     search_help_text = "Prefixes: cage: name: slug: uei: product: — or search all fields"
     ordering = ("profile__display_name",)
@@ -257,11 +268,11 @@ class ManufacturerAdmin(admin.ModelAdmin):
         css = {"all": ("catalog/css/toggle.css",)}
         js = ("catalog/js/toggle.js",)
 
-    readonly_fields = ("profile_display_name", "manufacturer_toggle_detail", "status_toggle_detail", "view_on_site_detail")
+    readonly_fields = ("profile_display_name", "manufacturer_toggle_detail", "status_toggle_detail", "view_on_site_detail", "logo_preview_detail")
 
     fieldsets = (
         (None, {
-            "fields": ("view_on_site_detail", "manufacturer_toggle_detail", "status_toggle_detail"),
+            "fields": ("logo_preview_detail", "view_on_site_detail", "manufacturer_toggle_detail", "status_toggle_detail"),
         }),
         ("Identification", {
             "fields": (
@@ -618,6 +629,34 @@ class ManufacturerAdmin(admin.ModelAdmin):
             return format_html('<a href="{}" target="_blank">View</a>', url)
         return "-"
     view_on_site_link.short_description = "Site"
+
+    def logo_thumb(self, obj):
+        try:
+            logo = obj.profile.logo
+        except ManufacturerProfile.DoesNotExist:
+            logo = None
+        if logo:
+            return format_html(
+                '<img src="{}" width="28" height="28" style="border-radius:4px; '
+                'object-fit:contain; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,0.1);" />',
+                logo.file.url,
+            )
+        return ""
+    logo_thumb.short_description = ""
+
+    def logo_preview_detail(self, obj):
+        try:
+            logo = obj.profile.logo
+        except ManufacturerProfile.DoesNotExist:
+            logo = None
+        if logo:
+            return format_html(
+                '<img src="{}" style="max-width:120px; max-height:120px; border-radius:8px; '
+                'box-shadow:0 2px 8px rgba(0,0,0,0.1); background:#fff;" />',
+                logo.file.url,
+            )
+        return "(no logo)"
+    logo_preview_detail.short_description = "Logo"
 
     def display_name_col(self, obj):
         return obj.display_name

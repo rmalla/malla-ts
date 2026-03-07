@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     "home",
     "search",
     "catalog",
+    "django.contrib.humanize",
     "wagtail.contrib.forms",
     "wagtail.contrib.redirects",
     "wagtail.contrib.sitemaps",

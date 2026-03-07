@@ -63,7 +63,7 @@ def product_list(request):
 def product_detail(request, manufacturer_slug, part_slug):
     """Detail view for a single product."""
     product = get_object_or_404(
-        Product.objects.published().select_related("fsc", "manufacturer", "manufacturer__profile"),
+        Product.objects.published().select_related("fsc", "manufacturer", "manufacturer__profile", "manufacturer__profile__logo"),
         manufacturer__slug=manufacturer_slug,
         part_number_slug=part_slug,
     )
@@ -100,7 +100,7 @@ def product_detail(request, manufacturer_slug, part_slug):
 def manufacturer_detail(request, slug):
     """Manufacturer page with company info and product listings."""
     org = get_object_or_404(
-        Manufacturer.objects.select_related("profile"),
+        Manufacturer.objects.select_related("profile", "profile__logo"),
         slug=slug,
         profile__status=Manufacturer.ENABLED,
     )
@@ -129,7 +129,7 @@ def manufacturer_list(request):
     country_filter = request.GET.get("country", "").strip()
     page_number = request.GET.get("page", 1)
 
-    manufacturers = Manufacturer.objects.select_related("profile").filter(
+    manufacturers = Manufacturer.objects.select_related("profile", "profile__logo").filter(
         profile__status=Manufacturer.ENABLED,
         products__is_active__gte=0,
     ).distinct().annotate(

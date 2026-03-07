@@ -1,7 +1,34 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static humanize %}
 
 {% block title %}Products Catalog - Government Parts & Equipment{% endblock %}
+
+{% block meta_description %}
+<meta name="description" content="Browse {{ total_count|default:'thousands of' }} government and commercial products. Find parts by part number or manufacturer. Request quotes from Malla Technical Services." />
+{% endblock %}
+
+{% block canonical_url %}
+<link rel="canonical" href="https://www.malla-ts.com/products/" />
+{% endblock %}
+
+{% block og_tags %}
+<meta property="og:title" content="Products Catalog - Malla Technical Services" />
+<meta property="og:description" content="Browse government and commercial products. Find parts by part number or manufacturer." />
+<meta property="og:url" content="https://www.malla-ts.com/products/" />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Malla Technical Services" />
+<meta property="og:image" content="https://malla-ts.com{% static 'images/og-image.png' %}" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:locale" content="en_US" />
+{% endblock %}
+
+{% block twitter_tags %}
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Products Catalog - Government Parts & Equipment" />
+<meta name="twitter:description" content="Browse government and commercial products. Find parts by part number or manufacturer. Request quotes from Malla Technical Services." />
+<meta name="twitter:image" content="https://malla-ts.com{% static 'images/og-image.png' %}" />
+{% endblock %}
 
 {% block content %}
 
@@ -51,7 +78,7 @@
                     <div class="nsn-result-header">
                         <a href="{% url 'product_detail' item.manufacturer.slug item.part_number_slug %}" class="nsn-link">{{ item.get_display_name }}</a>
                         {% if item.price %}
-                        <span class="nsn-price" style="float: right; font-size: 1.1rem;">${{ item.price|floatformat:2 }}</span>
+                        <span class="nsn-price" style="float: right; font-size: 1.1rem;">${{ item.price|floatformat:2|intcomma }}</span>
                         {% endif %}
                     </div>
                     <p class="nsn-description">

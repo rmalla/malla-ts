@@ -3,6 +3,33 @@
 
 {% block title %}Manufacturers - Government Parts Suppliers{% endblock %}
 
+{% block meta_description %}
+<meta name="description" content="Browse {{ total_count|default:'hundreds of' }} verified manufacturers and government parts suppliers. Find company details and product catalogs at Malla Technical Services." />
+{% endblock %}
+
+{% block canonical_url %}
+<link rel="canonical" href="https://www.malla-ts.com/manufacturers/" />
+{% endblock %}
+
+{% block og_tags %}
+<meta property="og:title" content="Manufacturers - Government Parts Suppliers - Malla Technical Services" />
+<meta property="og:description" content="Browse verified manufacturers and government parts suppliers. Find company details and product catalogs." />
+<meta property="og:url" content="https://www.malla-ts.com/manufacturers/" />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Malla Technical Services" />
+<meta property="og:image" content="https://malla-ts.com{% static 'images/og-image.png' %}" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:locale" content="en_US" />
+{% endblock %}
+
+{% block twitter_tags %}
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Manufacturers - Government Parts Suppliers" />
+<meta name="twitter:description" content="Browse verified manufacturers and government parts suppliers. Find company details and product catalogs." />
+<meta name="twitter:image" content="https://malla-ts.com{% static 'images/og-image.png' %}" />
+{% endblock %}
+
 {% block content %}
 
 <section class="page-header page-header--with-image" style="background-image: url('{% static 'images/hero-nsn.jpg' %}')">
@@ -55,17 +82,26 @@
             {% if manufacturers %}
             <div class="nsn-results-list">
                 {% for mfr in manufacturers %}
-                <div class="nsn-result-card">
-                    <div class="nsn-result-header">
-                        <a href="{% url 'manufacturer_detail' mfr.slug %}" class="nsn-link">{{ mfr.display_name }}</a>
+                <div class="nsn-result-card mfr-list-card">
+                    {% if mfr.profile.logo %}
+                    <div class="mfr-list-logo">
+                        <a href="{% url 'manufacturer_detail' mfr.slug %}">
+                            <img src="{{ mfr.profile.logo.file.url }}" alt="{{ mfr.display_name }} logo" width="56" height="56" loading="lazy" />
+                        </a>
                     </div>
-                    <p class="nsn-description">
-                        {% if mfr.city or mfr.state or mfr.country %}
-                        {{ mfr.city }}{% if mfr.city and mfr.state %}, {% endif %}{{ mfr.state }}{% if mfr.country %}, {{ mfr.country }}{% endif %}
-                        | {% endif %}
-                        {{ mfr.product_count }} product{{ mfr.product_count|pluralize }}
-                    </p>
-                    <a href="{% url 'manufacturer_detail' mfr.slug %}" class="btn btn-secondary btn-sm">View Products</a>
+                    {% endif %}
+                    <div class="mfr-list-info">
+                        <div class="nsn-result-header">
+                            <a href="{% url 'manufacturer_detail' mfr.slug %}" class="nsn-link">{{ mfr.display_name }}</a>
+                        </div>
+                        <p class="nsn-description">
+                            {% if mfr.city or mfr.state or mfr.country %}
+                            {{ mfr.city }}{% if mfr.city and mfr.state %}, {% endif %}{{ mfr.state }}{% if mfr.country %}, {{ mfr.country }}{% endif %}
+                            | {% endif %}
+                            {{ mfr.product_count }} product{{ mfr.product_count|pluralize }}
+                        </p>
+                        <a href="{% url 'manufacturer_detail' mfr.slug %}" class="btn btn-secondary btn-sm">View Products</a>
+                    </div>
                 </div>
                 {% endfor %}
             </div>
