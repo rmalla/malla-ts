@@ -80,7 +80,7 @@
                         {% for item in products %}
                         <div class="nsn-result-card">
                             <div class="nsn-result-header">
-                                <a href="{% url 'product_detail' manufacturer.slug item.part_number_slug %}" class="nsn-link">{{ item.display_name }}</a>
+                                <a href="{% url 'product_detail' manufacturer.slug item.part_number_slug %}" class="nsn-link">{{ item.get_display_name }}</a>
                             </div>
                             {% if item.part_number %}
                             <p class="nsn-description">Part Number: <strong>{{ item.part_number }}</strong></p>

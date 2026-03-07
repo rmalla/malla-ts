@@ -1,15 +1,15 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{{ product.display_name }} - {{ manufacturer.display_name }} - PN {{ product.part_number }}{% endblock %}
+{% block title %}{{ product.get_display_name }} - {{ manufacturer.display_name }} - PN {{ product.part_number }}{% endblock %}
 
 {% block extra_structured_data %}
 <script type="application/ld+json">
 {
     "@context": "https://schema.org",
     "@type": "Product",
-    "name": "{{ product.display_name }}",
-    "description": "{{ product.display_name }}{% if product.part_number %} — Part Number {{ product.part_number }}{% endif %}",
+    "name": "{{ product.get_display_name }}",
+    "description": "{{ product.get_display_name }}{% if product.part_number %} — Part Number {{ product.part_number }}{% endif %}",
     {% if product.part_number %}"sku": "{{ product.part_number }}",{% endif %}
     {% if product.part_number %}"mpn": "{{ product.part_number }}",{% endif %}
     "manufacturer": {
@@ -57,7 +57,7 @@
         {
             "@type": "ListItem",
             "position": 4,
-            "name": "{{ product.part_number|default:product.display_name|truncatewords:8 }}",
+            "name": "{{ product.part_number|default:product.get_display_name|truncatewords:8 }}",
             "item": "https://malla-ts.com{% url 'product_detail' manufacturer.slug product.part_number_slug %}"
         }
     ]
@@ -74,9 +74,9 @@
             <span class="separator">/</span>
             <a href="{% url 'manufacturer_detail' manufacturer.slug %}">{{ manufacturer.display_name }}</a>
             <span class="separator">/</span>
-            <span class="current">{{ product.part_number|default:product.display_name|truncatewords:6 }}</span>
+            <span class="current">{{ product.part_number|default:product.get_display_name|truncatewords:6 }}</span>
         </nav>
-        <h1>{{ product.display_name }}</h1>
+        <h1>{{ product.get_display_name }}</h1>
         <p class="page-intro nsn-item-title"><a href="{% url 'manufacturer_detail' manufacturer.slug %}" style="color: inherit; text-decoration: underline;">{{ manufacturer.display_name }}</a>{% if product.part_number %} | PN: {{ product.part_number }}{% endif %}</p>
     </div>
 </section>
@@ -94,7 +94,7 @@
                     <table class="nsn-specs-table">
                         <tr>
                             <th>Product Name</th>
-                            <td>{{ product.display_name }}</td>
+                            <td>{{ product.get_display_name }}</td>
                         </tr>
                         <tr>
                             <th>Manufacturer</th>
@@ -161,7 +161,7 @@
 
                     <form class="nsn-quote-form" action="/contact/submit/" method="POST">
                         {% csrf_token %}
-                        <input type="hidden" name="item_name" value="{{ product.display_name }} ({{ manufacturer.display_name }}{% if product.part_number %}, PN: {{ product.part_number }}{% endif %})" />
+                        <input type="hidden" name="item_name" value="{{ product.get_display_name }} ({{ manufacturer.display_name }}{% if product.part_number %}, PN: {{ product.part_number }}{% endif %})" />
 
                         <div class="form-group">
                             <label for="name">Name *</label>
@@ -197,7 +197,7 @@
             <div class="related-grid">
                 {% for related in related_products %}
                 <a href="{% url 'product_detail' related.manufacturer.slug related.part_number_slug %}" class="related-card">
-                    <span class="related-name">{{ related.display_name }}</span>
+                    <span class="related-name">{{ related.get_display_name }}</span>
                     <span class="related-price">{{ related.manufacturer.display_name }}</span>
                 </a>
                 {% endfor %}

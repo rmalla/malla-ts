@@ -134,7 +134,7 @@ def manufacturer_list(request):
         products__is_active__gte=0,
     ).distinct().annotate(
         product_count=models.Count("products", filter=models.Q(products__is_active__gte=0))
-    ).order_by("company_name")
+    ).order_by("profile__display_name")
 
     if country_filter == "us":
         manufacturers = manufacturers.filter(country="UNITED STATES")

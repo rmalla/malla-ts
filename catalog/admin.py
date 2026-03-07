@@ -1,6 +1,7 @@
 from django.contrib import admin, messages
 from django.db.models import Count
 from django.http import JsonResponse
+from django.shortcuts import redirect
 from django.urls import path, reverse
 from django.utils.html import format_html
 
@@ -230,7 +231,7 @@ class ManufacturerAdmin(admin.ModelAdmin):
     list_select_related = ("profile",)
     search_fields = ("cage_code", "company_name", "slug", "uei")
     search_help_text = "Prefixes: cage: name: slug: uei: product: — or search all fields"
-    ordering = ("company_name",)
+    ordering = ("profile__display_name",)
 
     _PREFIX_MAP = {"cage": "cage_code", "name": "company_name", "slug": "slug", "uei": "uei"}
 
@@ -386,8 +387,24 @@ class ManufacturerAdmin(admin.ModelAdmin):
                 self.admin_site.admin_view(self.purge_filtered_view),
                 name="catalog_manufacturer_purge_filtered",
             ),
+            path(
+                "refresh-display-names/",
+                self.admin_site.admin_view(self.refresh_display_names_view),
+                name="catalog_manufacturer_refresh_display_names",
+            ),
         ]
         return custom_urls + super().get_urls()
+
+    def refresh_display_names_view(self, request):
+        if request.method != "POST":
+            return JsonResponse({"ok": False, "error": "POST required"}, status=405)
+        from django.core.management import call_command
+        from io import StringIO
+        out = StringIO()
+        refresh_slugs = "refresh_slugs" in request.POST
+        call_command("refresh_display_names", refresh_slugs=refresh_slugs, stdout=out)
+        messages.success(request, out.getvalue().strip().split("\n")[-1])
+        return redirect(reverse("admin:catalog_manufacturer_changelist"))
 
     def set_status_view(self, request, pk):
         if request.method != "POST":
@@ -605,7 +622,7 @@ class ManufacturerAdmin(admin.ModelAdmin):
     def display_name_col(self, obj):
         return obj.display_name
     display_name_col.short_description = "Name"
-    display_name_col.admin_order_field = "company_name"
+    display_name_col.admin_order_field = "profile__display_name"
 
     def product_count_col(self, obj):
         count = obj.product_count
@@ -660,14 +677,15 @@ class PublishedFilter(admin.SimpleListFilter):
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
+    change_list_template = "admin/catalog/product/change_list.html"
     list_display = (
-        "display_name", "nsn", "filter_manufacturer_link", "manufacturer_display",
+        "display_name_col", "nsn", "filter_manufacturer_link", "manufacturer_display",
         "part_number", "price_display", "source", "status_toggle", "google_search_link", "view_on_site_link",
     )
     list_filter = ("source", "is_active", PublishedFilter, ManufacturerVerifiedFilter)
     search_fields = (
         "nsn", "nomenclature",
-        "part_number", "name",
+        "part_number", "name", "display_name",
         "manufacturer__company_name", "manufacturer__cage_code",
     )
     search_help_text = "Prefixes: nsn: pn: name: mfr: cage: — or search all fields"
@@ -700,7 +718,7 @@ class ProductAdmin(admin.ModelAdmin):
         }),
         ("Product Info", {
             "fields": (
-                "name", "description", "part_number",
+                "display_name", "name", "description", "part_number",
                 "nsn", "nomenclature", "price", "fsc", "unit_of_issue",
                 "source",
             ),
@@ -717,8 +735,24 @@ class ProductAdmin(admin.ModelAdmin):
                 self.admin_site.admin_view(self.set_field_view),
                 name="catalog_product_set_field",
             ),
+            path(
+                "naturalize-names/",
+                self.admin_site.admin_view(self.naturalize_names_view),
+                name="catalog_product_naturalize_names",
+            ),
         ]
         return custom_urls + super().get_urls()
+
+    def naturalize_names_view(self, request):
+        if request.method != "POST":
+            return JsonResponse({"ok": False, "error": "POST required"}, status=405)
+        from django.core.management import call_command
+        from io import StringIO
+        out = StringIO()
+        force = "force" in request.POST
+        call_command("naturalize_product_names", force=force, stdout=out)
+        messages.success(request, out.getvalue().strip().split("\n")[-1])
+        return redirect(reverse("admin:catalog_product_changelist"))
 
     def set_field_view(self, request, pk):
         if request.method != "POST":
@@ -739,6 +773,11 @@ class ProductAdmin(admin.ModelAdmin):
         setattr(product, field, value)
         product.save(update_fields=[field])
         return JsonResponse({"ok": True})
+
+    def display_name_col(self, obj):
+        return obj.get_display_name()
+    display_name_col.short_description = "Name"
+    display_name_col.admin_order_field = "display_name"
 
     def price_display(self, obj):
         if obj.price:

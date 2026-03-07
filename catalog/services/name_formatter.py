@@ -80,6 +80,9 @@ _DEPT_SUFFIXES = re.compile(
     r'AEROSPACE[-\s]+\w+|'
     r'SERVICE\s+AND\s+SUPPORT\s+\w+|'
     r'COMMAND\s+AMSTA[-\w]*|'
+    r'DEPT\s+OF\s+.*|'
+    r'DIVISION\s+OF\s+.*|'
+    r'SUBSIDIARY\s+OF\s+.*|SUB\s+OF\s+.*|'
     r'\w+\s+SITE|'
     r'DIV\s+\w+.*'
     r')$',
@@ -94,7 +97,7 @@ _MC_PATTERN = re.compile(r'\bMc([a-z])', re.ASCII)
 
 # Words to keep lowercase in title case (except at start)
 _LOWERCASE_WORDS = {
-    'OF', 'THE', 'AND', 'FOR', 'IN', 'ON', 'AT', 'TO', 'A', 'AN',
+    'OF', 'THE', 'AND', 'FOR', 'IN', 'ON', 'AT', 'TO', 'AN',
     # French articles/prepositions
     'DE', 'DES', 'DU', 'LA', 'LE', 'LES', 'AU', 'AUX',
 }
@@ -117,25 +120,25 @@ _KNOWN_ACRONYMS = {'BASF', 'EADS'}
 _NOT_ACRONYMS = {
     # English words
     'AIR', 'ALL', 'AMP', 'AND', 'ANY', 'ARC', 'ARM', 'ART', 'AXE',
-    'BAD', 'BAG', 'BAR', 'BAY', 'BIG', 'BIT', 'BOW', 'BOX', 'BUS', 'BUT', 'BUY',
-    'CAN', 'CAP', 'CAR', 'CUT',
-    'DAM', 'DAY', 'DES', 'DID', 'DIG', 'DOT', 'DRY', 'DUE',
-    'EAR', 'EAT', 'END',
-    'FAR', 'FAT', 'FED', 'FEW', 'FIG', 'FIN', 'FIT', 'FIX', 'FLY', 'FOR', 'FOX', 'FUN', 'FUR',
+    'BAD', 'BAG', 'BAR', 'BAY', 'BED', 'BIG', 'BIN', 'BIT', 'BOW', 'BOX', 'BUS', 'BUT', 'BUY',
+    'CAB', 'CAM', 'CAN', 'CAP', 'CAR', 'CAT', 'COG', 'CUP', 'CUT',
+    'DAM', 'DAY', 'DES', 'DID', 'DIE', 'DIG', 'DOG', 'DOT', 'DRY', 'DUE',
+    'EAR', 'EAT', 'END', 'EYE',
+    'FAN', 'FAR', 'FAT', 'FED', 'FEW', 'FIG', 'FIN', 'FIT', 'FIX', 'FLY', 'FOR', 'FOX', 'FUN', 'FUR',
     'GAP', 'GAS', 'GET', 'GOT', 'GUM', 'GUN', 'GUT',
-    'HAD', 'HAS', 'HAT', 'HER', 'HIM', 'HIS', 'HIT', 'HOT', 'HOW',
+    'HAD', 'HAS', 'HAT', 'HER', 'HIM', 'HIS', 'HIT', 'HOT', 'HOW', 'HUB',
     'ICE', 'ILL',
-    'JAM', 'JAR', 'JAW', 'JET', 'JOB', 'JOY',
+    'ION', 'JAM', 'JAR', 'JAW', 'JET', 'JOB', 'JOY',
     'KEY', 'KIT',
-    'LAB', 'LAP', 'LAW', 'LAY', 'LED', 'LES', 'LET', 'LID', 'LIT', 'LOG', 'LOT', 'LOW',
+    'LAB', 'LAP', 'LAW', 'LAY', 'LED', 'LEG', 'LES', 'LET', 'LID', 'LIT', 'LOG', 'LOT', 'LOW', 'LUG',
     'MAN', 'MAP', 'MAT', 'MAY', 'MEN', 'MET', 'MID', 'MIX', 'MOD',
     'NET', 'NEW', 'NIT', 'NOR', 'NOT', 'NOW', 'NUT',
     'OAK', 'ODD', 'OFF', 'OIL', 'OLD', 'ONE', 'OUR', 'OUT', 'OWE', 'OWN',
-    'PAN', 'PAY', 'PEN', 'PER', 'PET', 'PIN', 'PIT', 'PLY', 'POT', 'PRE', 'PRO', 'PUT',
-    'RAN', 'RAW', 'RED', 'RIB', 'RIG', 'RIM', 'ROD', 'ROW', 'RUB', 'RUG', 'RUN',
+    'PAD', 'PAN', 'PAY', 'PEN', 'PER', 'PET', 'PIN', 'PIT', 'PLY', 'POD', 'POT', 'PRE', 'PRO', 'PUT',
+    'RAM', 'RAN', 'RAW', 'RED', 'RIB', 'RIG', 'RIM', 'ROD', 'ROW', 'RUB', 'RUG', 'RUN',
     'SAT', 'SAW', 'SAY', 'SEA', 'SET', 'SHE', 'SIT', 'SIX', 'SKI', 'SKY', 'SOD',
     'SON', 'SPA', 'SPY', 'SUM', 'SUN',
-    'TAN', 'TAP', 'TAR', 'TAX', 'TEN', 'THE', 'TIE', 'TIN', 'TIP', 'TON', 'TOO', 'TOP', 'TOW', 'TOY', 'TUB', 'TWO',
+    'TAB', 'TAG', 'TAN', 'TAP', 'TAR', 'TAX', 'TEE', 'TEN', 'THE', 'TIE', 'TIN', 'TIP', 'TOE', 'TON', 'TOO', 'TOP', 'TOW', 'TOY', 'TUB', 'TWO',
     'URN', 'USE',
     'VAN', 'VAT', 'VET',
     'WAR', 'WAX', 'WAY', 'WEB', 'WET', 'WHO', 'WHY', 'WIN', 'WIT', 'WON', 'WOO',
@@ -240,6 +243,68 @@ def _handle_dash_separator(name):
     return name
 
 
+def _clean_display_name(text):
+    """
+    Post-processing cleanup for manufacturer display names.
+
+    1. Collapse dotted initials: A.B.M. -> ABM, A.B.Z. -> ABZ
+    2. Collapse ampersand between single letters: A&B -> AB, A & B -> AB
+    3. Replace word-level ampersand with 'and': Machining & Fab -> Machining and Fab
+    4. Collapse spaced single letters: H B -> HB, A C I -> ACI
+    5. Clean up leftover punctuation/spacing
+    """
+    if not text:
+        return text
+
+    # 1. Dotted initials: "A.B.M.", "A. B. M.", "A.K.O" -> "ABM", "AKO"
+    #    2+ single-letter-dot pairs, optional trailing letter without dot
+    def collapse_dotted(m):
+        letters = re.findall(r'[A-Za-z]', m.group(0))
+        return ''.join(letters).upper()
+    text = re.sub(r'(?<!\w)([A-Za-z]\.\s*){2,}([A-Za-z])?(?!\w)', collapse_dotted, text)
+
+    # 2. Ampersand between single letters: "A&B", "A & B" -> "AB"
+    text = re.sub(r'(?<!\w)([A-Za-z])\s*&\s*([A-Za-z])(?!\w)', lambda m: m.group(1).upper() + m.group(2).upper(), text)
+
+    # 3. Word-level ampersand -> "and"
+    text = re.sub(r'\s*&\s*', ' and ', text)
+
+    # 4. Strip "a/an UNIT/DIVISION/DIV/DEPT/SUB OF ..." noise phrases
+    text = re.sub(r'\s+an?\s+(?:unit|division|div|dept|sub)\s+of\s+.*$', '', text, flags=re.IGNORECASE)
+    # Re-strip trailing legal suffixes exposed by noise removal (CO, LP, etc.)
+    text = _strip_legal(text.upper()).rstrip('., ')
+    # Re-apply smart title case after stripping
+    text = _smart_title(text)
+
+    # 5. Collapse consecutive spaced single letters: "H B" -> "HB", "T T R" -> "TTR"
+    #    "A" merges with other single letters but NOT with multi-char tokens
+    #    (to avoid "CO A" -> "COA" or "Pump A TBG" -> "Pump ATBG")
+    prev = None
+    while prev != text:
+        prev = text
+        # Merge two standalone single letters (including A)
+        text = re.sub(r'(?<!\w)([A-Z]) ([A-Z])(?!\w)', r'\1\2', text)
+        # Merge trailing single letter onto short all-caps token: "RD L" -> "RDL"
+        # Skip A to avoid "CO A" -> "COA" (article not initial)
+        text = re.sub(r'\b([A-Z]{2,4}) ([B-Z])(?!\w)', r'\1\2', text)
+        # Merge leading single letter into following short all-caps token: "T TR" -> "TTR"
+        # Skip A to avoid "A TBG" -> "ATBG"
+        text = re.sub(r'(?<!\w)([B-Z]) ([A-Z]{2,4})\b', r'\1\2', text)
+    # Final pass: merge trailing "A" onto all-caps token when followed by a regular word or end
+    # "US A" -> "USA", "AA A Engineering" -> "AAA Engineering"
+    # But not "Pump A TBG" (A between mixed-case and all-caps)
+    text = re.sub(r'\b([A-Z]{2,4}) A(?=\s+[A-Z][a-z]|\s*$)', r'\1A', text)
+
+    # 5. Strip trailing filler words: "Antunes and", "Products of"
+    text = re.sub(r'\s+(?:and|of|the|for|or|a)\s*$', '', text, flags=re.IGNORECASE)
+
+    # 6. Strip trailing punctuation and extra spaces
+    text = re.sub(r'[,.\s/]+$', '', text)
+    text = re.sub(r'\s{2,}', ' ', text).strip()
+
+    return text
+
+
 def format_manufacturer_name(raw_name):
     """
     Beautify a DLA CAGE manufacturer name for display.
@@ -259,11 +324,13 @@ def format_manufacturer_name(raw_name):
 
     name = raw_name.strip()
 
-    # 1. Handle dash-separator patterns
-    name = _handle_dash_separator(name)
+    # 1. Extract base name (before DBA, DIV, or DIVISION) — run before dash handler
+    base_name = re.split(r'\b(?:DBA|DIVISION|DIV)\b', name, flags=re.IGNORECASE)[0].strip()
+    # Strip trailing articles left over from "CO A DIV" splits
+    base_name = re.sub(r'\s+[Aa]\s*$', '', base_name)
 
-    # 2. Extract base name (before DBA or DIV)
-    base_name = re.split(r'\b(?:DBA|DIV)\b', name, flags=re.IGNORECASE)[0].strip()
+    # 2. Handle dash-separator patterns
+    base_name = _handle_dash_separator(base_name)
     base_name = _strip_legal(base_name).rstrip('., ')
 
     # 3. If DBA is present, try the last DBA portion (operating/trade name)
@@ -281,11 +348,11 @@ def format_manufacturer_name(raw_name):
         base_upper = set(base_name.upper().split()) - {'INC', 'CORP', 'LLC', 'CO', 'THE'}
         has_overlap = bool(dba_upper & base_upper)
         if has_overlap and len(dba_name.split()) >= 2:
-            return _smart_title(dba_name)
+            return _clean_display_name(_smart_title(dba_name))
         dba_words_upper = {w.upper() for w in dba_name.split()}
         is_generic = dba_words_upper and dba_words_upper <= _GENERIC_WORDS
         if len(dba_name) > 5 and not has_overlap and not is_generic:
-            return _smart_title(dba_name)
+            return _clean_display_name(_smart_title(dba_name))
 
     # 4. Clean up base name — strip mid-name legal words and everything after
     mid_match = _MID_LEGAL.search(base_name)
@@ -305,8 +372,8 @@ def format_manufacturer_name(raw_name):
     # 7. Second pass of legal suffix stripping (catches suffixes exposed by THE removal)
     base_name = _strip_legal(base_name).rstrip('., ')
 
-    # 8. Smart title case
-    return _smart_title(base_name)
+    # 8. Smart title case + display cleanup
+    return _clean_display_name(_smart_title(base_name))
 
 
 def format_nomenclature(raw_name):
@@ -327,3 +394,49 @@ def format_nomenclature(raw_name):
 
     # Smart title case
     return _smart_title(name)
+
+
+def naturalize_nomenclature(raw_name):
+    """
+    Convert military nomenclature to natural English product name.
+
+    MIL-STD nomenclature: BASE_NOUN, MODIFIER1, MODIFIER2
+    Natural English:       MODIFIER1 MODIFIER2 BASE_NOUN
+
+    Examples:
+        "HOSE ASSEMBLY,NONMETALLIC"        -> "Nonmetallic Hose Assembly"
+        "MOTOR,DIRECT CURRENT"             -> "Direct Current Motor"
+        "SEAT,VALVE"                       -> "Valve Seat"
+        "CIRCUIT CARD ASSEMBLY"            -> "Circuit Card Assembly"
+        "COVER,HYDRAULIC,PUMP-MOTOR"       -> "Hydraulic Pump-Motor Cover"
+        "RECTIFIER,SEMICONDUCTOR DEVICE,U" -> "Semiconductor Device Rectifier"
+    """
+    if not raw_name:
+        return ""
+
+    name = raw_name.strip()
+
+    # Fix comma spacing for consistent splitting
+    name = re.sub(r',(?=\S)', ', ', name)
+
+    if ',' not in name:
+        return _smart_title(name)
+
+    parts = [p.strip() for p in name.split(',')]
+    parts = [p for p in parts if p]
+
+    if len(parts) < 2:
+        return _smart_title(name)
+
+    base = parts[0]
+    modifiers = parts[1:]
+
+    # Drop truncated fragments: single char or empty after strip
+    modifiers = [m for m in modifiers if len(m) > 1]
+
+    if not modifiers:
+        return _smart_title(base)
+
+    # Natural order: modifiers before base noun
+    natural = ' '.join(modifiers) + ' ' + base
+    return _smart_title(natural)

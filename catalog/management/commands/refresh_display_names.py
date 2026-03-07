@@ -28,53 +28,66 @@ class Command(BaseCommand):
         batch_size = options['batch_size']
         refresh_slugs = options['refresh_slugs']
 
-        manufacturers = Manufacturer.objects.select_related('profile').all()
-        total = manufacturers.count()
+        # 1. Create missing profiles in bulk
+        missing = Manufacturer.objects.filter(profile__isnull=True)
+        missing_count = missing.count()
+        if missing_count:
+            self.stdout.write(f'Creating {missing_count} missing profiles...')
+            if not dry_run:
+                profiles = [
+                    ManufacturerProfile(
+                        organization=mfr,
+                        display_name=format_manufacturer_name(mfr.company_name),
+                    )
+                    for mfr in missing.iterator()
+                ]
+                ManufacturerProfile.objects.bulk_create(profiles, batch_size=batch_size)
+            self.stdout.write(f'  {missing_count} profiles created')
+
+        # 2. Update display names via select_related (no N+1)
+        manufacturers = list(
+            Manufacturer.objects.select_related('profile')
+            .exclude(profile__isnull=True)
+            .only('id', 'company_name', 'cage_code', 'slug', 'city',
+                  'profile__id', 'profile__display_name', 'profile__organization_id')
+        )
+        total = len(manufacturers)
+        self.stdout.write(f'Processing {total} manufacturers...')
 
         changed = []
         unchanged = 0
-        created_profiles = 0
         to_update = []
 
         slug_changes = []
         slugs_to_update = []
-        pending_slugs = set()  # track slugs claimed in this batch to avoid duplicates
+        pending_slugs = set()
 
-        for mfr in manufacturers.iterator():
+        for i, mfr in enumerate(manufacturers, 1):
             new_name = format_manufacturer_name(mfr.company_name)
+            old_name = mfr.profile.display_name or ''
 
-            try:
-                profile = mfr.profile
-            except ManufacturerProfile.DoesNotExist:
-                if not dry_run:
-                    profile = ManufacturerProfile.objects.create(
-                        organization=mfr,
-                        display_name=new_name,
-                    )
-                created_profiles += 1
-                changed.append((mfr.company_name, '', new_name))
-                if refresh_slugs:
-                    self._check_slug(mfr, new_name, slug_changes, slugs_to_update, pending_slugs, dry_run)
-                continue
-
-            old_name = profile.display_name or ''
             if old_name != new_name:
                 changed.append((mfr.company_name, old_name, new_name))
                 if not dry_run:
-                    profile.display_name = new_name
-                    to_update.append(profile)
-                    if len(to_update) >= batch_size:
-                        ManufacturerProfile.objects.bulk_update(to_update, ['display_name'], batch_size=batch_size)
-                        to_update.clear()
+                    mfr.profile.display_name = new_name
+                    to_update.append(mfr.profile)
             else:
                 unchanged += 1
 
             if refresh_slugs:
                 self._check_slug(mfr, new_name, slug_changes, slugs_to_update, pending_slugs, dry_run)
 
+            if i % 5000 == 0:
+                # Flush batch
+                if to_update and not dry_run:
+                    ManufacturerProfile.objects.bulk_update(to_update, ['display_name'], batch_size=batch_size)
+                    to_update.clear()
+                self.stdout.write(f'  [{i}/{total}] {len(changed)} changed, {unchanged} unchanged')
+                self.stdout.flush()
+
+        # Flush remaining
         if to_update and not dry_run:
             ManufacturerProfile.objects.bulk_update(to_update, ['display_name'], batch_size=batch_size)
-
         if slugs_to_update and not dry_run:
             Manufacturer.objects.bulk_update(slugs_to_update, ['slug'], batch_size=batch_size)
 
@@ -82,8 +95,8 @@ class Command(BaseCommand):
         self.stdout.write(f'\nTotal manufacturers: {total}')
         self.stdout.write(f'Changed: {len(changed)}')
         self.stdout.write(f'Unchanged: {unchanged}')
-        if created_profiles:
-            self.stdout.write(f'Profiles created: {created_profiles}')
+        if missing_count:
+            self.stdout.write(f'Profiles created: {missing_count}')
 
         if changed:
             self.stdout.write(f'\n--- Sample display name changes (first 50) ---')

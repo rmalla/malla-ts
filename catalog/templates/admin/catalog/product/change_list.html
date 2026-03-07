@@ -1,0 +1,25 @@
+{% extends "admin/change_list.html" %}
+{% load i18n static %}
+
+{% block object-tools-items %}
+  <li>
+    <form action="{% url 'admin:catalog_product_naturalize_names' %}" method="post" style="display:inline"
+          onsubmit="this.querySelector('button').disabled=true; this.querySelector('button').textContent='Running...';">
+      {% csrf_token %}
+      <button type="submit" class="button" style="cursor:pointer">
+        Naturalize Names
+      </button>
+    </form>
+  </li>
+  <li>
+    <form action="{% url 'admin:catalog_product_naturalize_names' %}" method="post" style="display:inline"
+          onsubmit="return confirm('This will overwrite ALL display names, including manual edits. Continue?')">
+      {% csrf_token %}
+      <input type="hidden" name="force" value="1">
+      <button type="submit" class="button" style="cursor:pointer; background:#ba2121; color:#fff">
+        Force Naturalize All
+      </button>
+    </form>
+  </li>
+  {{ block.super }}
+{% endblock %}

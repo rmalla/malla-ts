@@ -49,7 +49,7 @@
                 {% for item in products %}
                 <div class="nsn-result-card">
                     <div class="nsn-result-header">
-                        <a href="{% url 'product_detail' item.manufacturer.slug item.part_number_slug %}" class="nsn-link">{{ item.display_name }}</a>
+                        <a href="{% url 'product_detail' item.manufacturer.slug item.part_number_slug %}" class="nsn-link">{{ item.get_display_name }}</a>
                         {% if item.price %}
                         <span class="nsn-price" style="float: right; font-size: 1.1rem;">${{ item.price|floatformat:2 }}</span>
                         {% endif %}

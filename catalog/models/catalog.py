@@ -66,7 +66,11 @@ class Product(models.Model):
     # Display
     name = models.CharField(
         max_length=500, blank=True,
-        help_text="Product name. Falls back to nomenclature if blank",
+        help_text="Title-cased nomenclature (auto-generated from import)",
+    )
+    display_name = models.CharField(
+        max_length=500, blank=True,
+        help_text="Natural-language product name (auto-generated, manually overridable)",
     )
     description = models.TextField(blank=True)
 
@@ -117,17 +121,19 @@ class Product(models.Model):
         ]
 
     def __str__(self):
-        return self.display_name
+        return self.get_display_name()
 
     def save(self, *args, **kwargs):
         self.part_number_slug = slugify_part_number(self.part_number)
+        # Auto-populate display_name from nomenclature if not manually set
+        if not self.display_name and self.nomenclature:
+            from catalog.services.name_formatter import naturalize_nomenclature
+            self.display_name = naturalize_nomenclature(self.nomenclature)
         super().save(*args, **kwargs)
 
-    @property
-    def display_name(self):
-        if self.name:
-            return self.name
-        return self.nomenclature or self.part_number or "(unnamed)"
+    def get_display_name(self):
+        """Fallback chain: display_name field → name → nomenclature → part_number."""
+        return self.display_name or self.name or self.nomenclature or self.part_number or "(unnamed)"
 
 
 # ── ProductSpecification ───────────────────────────────────────────────────

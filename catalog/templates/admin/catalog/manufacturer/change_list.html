@@ -23,5 +23,14 @@
       </button>
     </form>
   </li>
+  <li>
+    <form action="{% url 'admin:catalog_manufacturer_refresh_display_names' %}" method="post" style="display:inline"
+          onsubmit="this.querySelector('button').disabled=true; this.querySelector('button').textContent='Running...';">
+      {% csrf_token %}
+      <button type="submit" class="button" style="cursor:pointer">
+        Refresh Display Names
+      </button>
+    </form>
+  </li>
   {{ block.super }}
 {% endblock %}
