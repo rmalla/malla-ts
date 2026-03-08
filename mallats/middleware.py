@@ -3,6 +3,7 @@ import time
 import uuid
 
 from django.db import connection
+from django.http import HttpResponsePermanentRedirect
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,23 @@ class RequestIDMiddleware:
         response = self.get_response(request)
         response["X-Request-ID"] = request_id
         return response
+
+
+class WwwRedirectMiddleware:
+    """Redirect non-www requests to www.malla-ts.com (301)."""
+
+    CANONICAL_HOST = "www.malla-ts.com"
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        host = request.get_host().split(":")[0]
+        if host != self.CANONICAL_HOST and host.endswith("malla-ts.com"):
+            return HttpResponsePermanentRedirect(
+                f"https://{self.CANONICAL_HOST}{request.get_full_path()}"
+            )
+        return self.get_response(request)
 
 
 class ServerTimingMiddleware:

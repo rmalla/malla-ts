@@ -17,7 +17,7 @@
 <meta property="og:url" content="https://www.malla-ts.com{% url 'product_detail' manufacturer.slug product.part_number_slug %}" />
 <meta property="og:type" content="product" />
 <meta property="og:site_name" content="Malla Technical Services" />
-<meta property="og:image" content="https://malla-ts.com{% static 'images/og-image.png' %}" />
+<meta property="og:image" content="https://www.malla-ts.com{% static 'images/og-image.png' %}" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
 <meta property="og:locale" content="en_US" />
@@ -31,7 +31,7 @@
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="{{ product.get_display_name }} - {{ manufacturer.display_name }}" />
 <meta name="twitter:description" content="{{ product.get_display_name }} by {{ manufacturer.display_name }}{% if product.part_number %}, PN {{ product.part_number }}{% endif %}. Get pricing and availability." />
-<meta name="twitter:image" content="https://malla-ts.com{% static 'images/og-image.png' %}" />
+<meta name="twitter:image" content="https://www.malla-ts.com{% static 'images/og-image.png' %}" />
 {% endblock %}
 
 {% block extra_structured_data %}
@@ -76,25 +76,25 @@
             "@type": "ListItem",
             "position": 1,
             "name": "Home",
-            "item": "https://malla-ts.com/"
+            "item": "https://www.malla-ts.com/"
         },
         {
             "@type": "ListItem",
             "position": 2,
             "name": "Products",
-            "item": "https://malla-ts.com/products/"
+            "item": "https://www.malla-ts.com/products/"
         },
         {
             "@type": "ListItem",
             "position": 3,
             "name": "{{ manufacturer.display_name }}",
-            "item": "https://malla-ts.com{% url 'manufacturer_detail' manufacturer.slug %}"
+            "item": "https://www.malla-ts.com{% url 'manufacturer_detail' manufacturer.slug %}"
         },
         {
             "@type": "ListItem",
             "position": 4,
             "name": "{{ product.part_number|default:product.get_display_name|truncatewords:8 }}",
-            "item": "https://malla-ts.com{% url 'product_detail' manufacturer.slug product.part_number_slug %}"
+            "item": "https://www.malla-ts.com{% url 'product_detail' manufacturer.slug product.part_number_slug %}"
         }
     ]
 }

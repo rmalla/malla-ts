@@ -9,7 +9,21 @@ from django.db import connection
 from wagtail.admin import urls as wagtailadmin_urls
 from wagtail import urls as wagtail_urls
 from wagtail.documents import urls as wagtaildocs_urls
-from wagtail.contrib.sitemaps.views import sitemap
+from django.contrib.sitemaps.views import sitemap
+from wagtail.contrib.sitemaps import Sitemap as WagtailSitemap
+
+from catalog.sitemaps import (
+    ManufacturerSitemap,
+    ProductSitemap,
+    StaticCatalogSitemap,
+)
+
+sitemaps = {
+    "wagtail": WagtailSitemap,
+    "products": ProductSitemap,
+    "manufacturers": ManufacturerSitemap,
+    "catalog_static": StaticCatalogSitemap,
+}
 
 from search import views as search_views
 from home import views as home_views
@@ -65,7 +79,7 @@ def health_check(request):
 
 urlpatterns = [
     path("robots.txt", robots_txt, name="robots_txt"),
-    path("sitemap.xml", cache_page(3600)(sitemap), name="sitemap"),
+    path("sitemap.xml", cache_page(3600)(sitemap), {"sitemaps": sitemaps}, name="sitemap"),
     path("health/", health_check, name="health_check"),
     # Redirect old home.Manufacturer admin → new ManufacturerProfile admin
     path("django-admin/home/manufacturer/", RedirectView.as_view(

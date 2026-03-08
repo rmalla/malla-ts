@@ -73,15 +73,25 @@ def product_detail(request, manufacturer_slug, part_slug):
     # Product specifications (key-value pairs)
     specs = list(product.specs.all().order_by("group", "sort_order", "label"))
 
-    # Related products: same FSC, different product
+    # Related products: same FSC first, then same manufacturer as fallback
     related = []
     if product.fsc:
-        related = (
+        related = list(
             Product.objects.published().filter(fsc=product.fsc)
             .exclude(pk=product.pk)
             .select_related("manufacturer", "manufacturer__profile")
             .order_by("nomenclature")[:6]
         )
+    if len(related) < 6:
+        already = {p.pk for p in related} | {product.pk}
+        more = (
+            Product.objects.published()
+            .filter(manufacturer=product.manufacturer)
+            .exclude(pk__in=already)
+            .select_related("manufacturer", "manufacturer__profile")
+            .order_by("nomenclature")[:6 - len(related)]
+        )
+        related.extend(more)
 
     context = {
         "supplier": product,  # backward compat for templates

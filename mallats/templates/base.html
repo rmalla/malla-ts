@@ -54,7 +54,7 @@
         {% endif %}
         <meta property="og:type" content="website" />
         <meta property="og:site_name" content="Malla Technical Services" />
-        <meta property="og:image" content="https://malla-ts.com{% static 'images/og-image.png' %}" />
+        <meta property="og:image" content="https://www.malla-ts.com{% static 'images/og-image.png' %}" />
         <meta property="og:image:width" content="1200" />
         <meta property="og:image:height" content="630" />
         <meta property="og:locale" content="en_US" />
@@ -65,7 +65,7 @@
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="{% if page.seo_title %}{{ page.seo_title }}{% else %}{{ page.title }}{% endif %} - Malla Technical Services" />
         <meta name="twitter:description" content="{% if page.search_description %}{{ page.search_description }}{% else %}Malla Technical Services provides B2B equipment procurement and engineering solutions.{% endif %}" />
-        <meta name="twitter:image" content="https://malla-ts.com{% static 'images/og-image.png' %}" />
+        <meta name="twitter:image" content="https://www.malla-ts.com{% static 'images/og-image.png' %}" />
         {% endblock %}
 
         {# Favicon #}
@@ -96,8 +96,8 @@
             "@context": "https://schema.org",
             "@type": "Organization",
             "name": "Malla Technical Services",
-            "url": "https://malla-ts.com",
-            "logo": "https://malla-ts.com{% static 'images/logo_malla.png' %}",
+            "url": "https://www.malla-ts.com",
+            "logo": "https://www.malla-ts.com{% static 'images/logo_malla.png' %}",
             "description": "B2B equipment procurement and engineering solutions for government, energy, municipal, and national park sectors.",
             "contactPoint": {
                 "@type": "ContactPoint",
@@ -121,7 +121,7 @@
                     "@type": "ListItem",
                     "position": 1,
                     "name": "Home",
-                    "item": "https://malla-ts.com/"
+                    "item": "https://www.malla-ts.com/"
                 }{% for ancestor in page.get_ancestors %}{% if not ancestor.is_root %},
                 {
                     "@type": "ListItem",
