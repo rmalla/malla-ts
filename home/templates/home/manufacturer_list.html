@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Manufacturers - Government Parts Suppliers{% endblock %}
+{% block title %}Manufacturers{% endblock %}
 
 {% block meta_description %}
 <meta name="description" content="Browse {{ total_count|default:'hundreds of' }} verified manufacturers and government parts suppliers. Find company details and product catalogs at Malla Technical Services." />
@@ -58,17 +58,9 @@
                            placeholder="Search by company name..."
                            class="nsn-search-input"
                            autocomplete="off" />
-                    {% if country_filter %}<input type="hidden" name="country" value="{{ country_filter }}" />{% endif %}
                     <button type="submit" class="btn btn-primary nsn-search-btn">Search</button>
                 </div>
             </form>
-        </div>
-
-        <!-- Country Filter -->
-        <div class="filter-bar">
-            <a href="?{% if query %}q={{ query }}{% endif %}" class="btn btn-sm {% if not country_filter %}btn-primary{% else %}btn-secondary{% endif %}">All</a>
-            <a href="?{% if query %}q={{ query }}&{% endif %}country=us" class="btn btn-sm {% if country_filter == 'us' %}btn-primary{% else %}btn-secondary{% endif %}">US</a>
-            <a href="?{% if query %}q={{ query }}&{% endif %}country=non-us" class="btn btn-sm {% if country_filter == 'non-us' %}btn-primary{% else %}btn-secondary{% endif %}">Non-US</a>
         </div>
 
         {% if query %}
@@ -77,45 +69,68 @@
                 <h2>Search Results for "{{ query }}"</h2>
                 <p class="results-count">{{ total_count }} manufacturer{{ total_count|pluralize }} found</p>
             </div>
+        {% else %}
+        <div class="results-header">
+            <h2>Browse All Manufacturers</h2>
+            <p class="results-count">{{ total_count }} manufacturer{{ total_count|pluralize }} available</p>
+        </div>
         {% endif %}
 
             {% if manufacturers %}
-            <div class="nsn-results-list">
+            <div class="product-tile-grid">
                 {% for mfr in manufacturers %}
-                <div class="nsn-result-card mfr-list-card">
-                    {% if mfr.profile.logo %}
-                    <div class="mfr-list-logo">
-                        <a href="{% url 'manufacturer_detail' mfr.slug %}">
-                            <img src="{{ mfr.profile.logo.file.url }}" alt="{{ mfr.display_name }} logo" width="56" height="56" loading="lazy" />
-                        </a>
+                <a href="{% url 'manufacturer_detail' mfr.slug %}" class="product-tile">
+                    <div class="product-tile__image">
+                        {% if mfr.profile.logo %}
+                        <img src="{{ mfr.profile.logo.file.url }}" alt="{{ mfr.display_name }} logo" loading="lazy" width="200" height="140" />
+                        {% else %}
+                        <img src="{% static 'images/logo_malla.png' %}" alt="{{ mfr.display_name }}" class="product-tile__image--fallback" loading="lazy" width="200" height="140" />
+                        {% endif %}
                     </div>
-                    {% endif %}
-                    <div class="mfr-list-info">
-                        <div class="nsn-result-header">
-                            <a href="{% url 'manufacturer_detail' mfr.slug %}" class="nsn-link">{{ mfr.display_name }}</a>
-                        </div>
-                        <p class="nsn-description">
-                            {% if mfr.city or mfr.state or mfr.country %}
-                            {{ mfr.city }}{% if mfr.city and mfr.state %}, {% endif %}{{ mfr.state }}{% if mfr.country %}, {{ mfr.country }}{% endif %}
-                            | {% endif %}
-                            {{ mfr.product_count }} product{{ mfr.product_count|pluralize }}
-                        </p>
-                        <a href="{% url 'manufacturer_detail' mfr.slug %}" class="btn btn-secondary btn-sm">View Products</a>
+                    <div class="product-tile__body">
+                        <span class="product-tile__name">{{ mfr.display_name }}</span>
+                        <span class="product-tile__mfr">
+                            {% if mfr.city or mfr.state or mfr.country %}{{ mfr.city }}{% if mfr.city and mfr.state %}, {% endif %}{{ mfr.state }}{% if mfr.country %}, {{ mfr.country }}{% endif %}{% endif %}
+                        </span>
+                        <span class="product-tile__price">{{ mfr.product_count }} product{{ mfr.product_count|pluralize }}</span>
                     </div>
-                </div>
+                </a>
                 {% endfor %}
             </div>
+
+            <!-- Schema.org ItemList structured data -->
+            <script type="application/ld+json">
+            {
+                "@context": "https://schema.org",
+                "@type": "ItemList",
+                "name": "Manufacturers{% if query %} — {{ query }}{% endif %}",
+                "numberOfItems": {{ total_count }},
+                "itemListElement": [
+                    {% for mfr in manufacturers %}
+                    {
+                        "@type": "ListItem",
+                        "position": {{ forloop.counter }},
+                        "item": {
+                            "@type": "Organization",
+                            "name": "{{ mfr.display_name|escapejs }}",
+                            "url": "https://www.malla-ts.com{% url 'manufacturer_detail' mfr.slug %}"
+                        }
+                    }{% if not forloop.last %},{% endif %}
+                    {% endfor %}
+                ]
+            }
+            </script>
 
             <!-- Pagination -->
             {% if manufacturers.has_other_pages %}
             <nav class="pagination-nav">
                 <ul class="pagination">
                     {% if manufacturers.has_previous %}
-                    <li><a href="?{% if query %}q={{ query }}&{% endif %}{% if country_filter %}country={{ country_filter }}&{% endif %}page={{ manufacturers.previous_page_number }}">&laquo; Previous</a></li>
+                    <li><a href="?{% if query %}q={{ query }}&{% endif %}page={{ manufacturers.previous_page_number }}">&laquo; Previous</a></li>
                     {% endif %}
                     <li class="page-info">Page {{ manufacturers.number }} of {{ manufacturers.paginator.num_pages }}</li>
                     {% if manufacturers.has_next %}
-                    <li><a href="?{% if query %}q={{ query }}&{% endif %}{% if country_filter %}country={{ country_filter }}&{% endif %}page={{ manufacturers.next_page_number }}">Next &raquo;</a></li>
+                    <li><a href="?{% if query %}q={{ query }}&{% endif %}page={{ manufacturers.next_page_number }}">Next &raquo;</a></li>
                     {% endif %}
                 </ul>
             </nav>

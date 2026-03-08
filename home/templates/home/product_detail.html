@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static humanize %}
 
-{% block title %}{{ product.get_display_name }} - {{ manufacturer.display_name }} - PN {{ product.part_number }}{% endblock %}
+{% block title %}{{ product.get_display_name }}{% endblock %}
 
 {% block meta_description %}
 <meta name="description" content="{{ product.get_display_name }} by {{ manufacturer.display_name }}{% if product.part_number %}, Part Number {{ product.part_number }}{% endif %}{% if product.price %}, ${{ product.price|floatformat:2|intcomma }}{% endif %}. Request a quote from Malla Technical Services." />

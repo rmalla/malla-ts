@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static humanize %}
 
-{% block title %}Products Catalog - Government Parts & Equipment{% endblock %}
+{% block title %}Products Catalog{% endblock %}
 
 {% block meta_description %}
 <meta name="description" content="Browse {{ total_count|default:'thousands of' }} government and commercial products. Find parts by part number or manufacturer. Request quotes from Malla Technical Services." />
@@ -69,27 +69,66 @@
                 <h2>Search Results for "{{ query }}"</h2>
                 <p class="results-count">{{ total_count }} product{{ total_count|pluralize }} found</p>
             </div>
+        {% else %}
+        <div class="results-header">
+            <h2>Browse All Products</h2>
+            <p class="results-count">{{ total_count|intcomma }} product{{ total_count|pluralize }} available</p>
+        </div>
         {% endif %}
 
             {% if products %}
-            <div class="nsn-results-list">
+            <div class="product-tile-grid">
                 {% for item in products %}
-                <div class="nsn-result-card">
-                    <div class="nsn-result-header">
-                        <a href="{% url 'product_detail' item.manufacturer.slug item.part_number_slug %}" class="nsn-link">{{ item.get_display_name }}</a>
-                        {% if item.price %}
-                        <span class="nsn-price" style="float: right; font-size: 1.1rem;">${{ item.price|floatformat:2|intcomma }}</span>
+                <a href="{% url 'product_detail' item.manufacturer.slug item.part_number_slug %}" class="product-tile">
+                    <div class="product-tile__image">
+                        {% if item.manufacturer.profile.logo %}
+                        <img src="{{ item.manufacturer.profile.logo.file.url }}" alt="{{ item.get_display_name }}" loading="lazy" width="200" height="140" />
+                        {% else %}
+                        <img src="{% static 'images/logo_malla.png' %}" alt="{{ item.get_display_name }}" class="product-tile__image--fallback" loading="lazy" width="200" height="140" />
                         {% endif %}
                     </div>
-                    <p class="nsn-description">
-                        Manufacturer: <strong><a href="{% url 'manufacturer_detail' item.manufacturer.slug %}">{{ item.manufacturer.display_name }}</a></strong>
-                        {% if item.part_number %} | Part No: <strong>{{ item.part_number }}</strong>{% endif %}
-                        {% if item.unit_of_issue %} | Unit: {{ item.unit_of_issue }}{% endif %}
-                    </p>
-                    <a href="{% url 'product_detail' item.manufacturer.slug item.part_number_slug %}" class="btn btn-secondary btn-sm">View Details</a>
-                </div>
+                    <div class="product-tile__body">
+                        <span class="product-tile__name">{{ item.get_display_name }}</span>
+                        <span class="product-tile__mfr">{{ item.manufacturer.display_name }}</span>
+                        {% if item.price %}
+                        <span class="product-tile__price">${{ item.price|floatformat:2|intcomma }}</span>
+                        {% endif %}
+                    </div>
+                </a>
                 {% endfor %}
             </div>
+
+            <!-- Schema.org ItemList structured data -->
+            <script type="application/ld+json">
+            {
+                "@context": "https://schema.org",
+                "@type": "ItemList",
+                "name": "Products Catalog{% if query %} — {{ query }}{% endif %}",
+                "numberOfItems": {{ total_count }},
+                "itemListElement": [
+                    {% for item in products %}
+                    {
+                        "@type": "ListItem",
+                        "position": {{ forloop.counter }},
+                        "item": {
+                            "@type": "Product",
+                            "name": "{{ item.get_display_name|escapejs }}",
+                            "url": "https://www.malla-ts.com{% url 'product_detail' item.manufacturer.slug item.part_number_slug %}",
+                            "manufacturer": {
+                                "@type": "Organization",
+                                "name": "{{ item.manufacturer.display_name|escapejs }}"
+                            }{% if item.price %},
+                            "offers": {
+                                "@type": "Offer",
+                                "price": "{{ item.price }}",
+                                "priceCurrency": "USD"
+                            }{% endif %}
+                        }
+                    }{% if not forloop.last %},{% endif %}
+                    {% endfor %}
+                ]
+            }
+            </script>
 
             <!-- Pagination -->
             {% if products.has_other_pages %}

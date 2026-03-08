@@ -32,7 +32,7 @@ def product_list(request):
     page_number = request.GET.get("page", 1)
 
     products = Product.objects.published().select_related(
-        "fsc", "manufacturer", "manufacturer__profile"
+        "fsc", "manufacturer", "manufacturer__profile", "manufacturer__profile__logo"
     ).order_by("nomenclature", "manufacturer__company_name")
 
     if query:
