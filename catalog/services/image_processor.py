@@ -104,10 +104,11 @@ def _detect_background(img):
         brightness, visible_ratio = _analyze_transparency(img)
         if visible_ratio < 0.90 and brightness > 200:
             # Light content on transparency → needs dark canvas
-            return (255, 255, 255), True
+            # bg_color=None signals autocrop to use alpha-only mode
+            return None, True
         if visible_ratio < 0.90:
             # Content on transparency, normal brightness → white canvas
-            return (0, 0, 0), False
+            return None, False
 
     # Sample 5×5 corners to detect background colour
     w, h = img.size
@@ -159,12 +160,20 @@ def _autocrop(img, bg_color):
     has_alpha = img.mode == "RGBA"
     alpha_data = list(img.split()[3].getdata()) if has_alpha else None
 
-    bg_r, bg_g, bg_b = bg_color
     tolerance = BG_TOLERANCE
+
+    # bg_color=None means transparent image — use alpha channel only
+    if bg_color is not None:
+        bg_r, bg_g, bg_b = bg_color
+    else:
+        bg_r = bg_g = bg_b = None
 
     def is_background(idx):
         if has_alpha and alpha_data[idx] < 32:
             return True
+        if bg_r is None:
+            # Alpha-only mode: any opaque pixel is content
+            return False
         r, g, b = pixels[idx]
         return (
             abs(r - bg_r) <= tolerance
@@ -203,9 +212,10 @@ def _autocrop(img, bg_color):
 
     cropped = img.crop((crop_left, crop_top, crop_right, crop_bottom))
 
+    bg_label = "alpha-only" if bg_r is None else f"({bg_r},{bg_g},{bg_b})"
     logger.debug(
         f"Auto-crop: {w}x{h} -> {cropped.width}x{cropped.height} "
-        f"(content was {content_w}x{content_h}, bg=({bg_r},{bg_g},{bg_b}))"
+        f"(content was {content_w}x{content_h}, bg={bg_label})"
     )
     return cropped
 

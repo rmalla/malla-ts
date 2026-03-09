@@ -399,6 +399,11 @@ class ManufacturerAdmin(admin.ModelAdmin):
                 name="catalog_manufacturer_purge_filtered",
             ),
             path(
+                "extract-logo/<int:pk>/",
+                self.admin_site.admin_view(self.extract_logo_view),
+                name="catalog_manufacturer_extract_logo",
+            ),
+            path(
                 "refresh-display-names/",
                 self.admin_site.admin_view(self.refresh_display_names_view),
                 name="catalog_manufacturer_refresh_display_names",
@@ -416,6 +421,25 @@ class ManufacturerAdmin(admin.ModelAdmin):
         call_command("refresh_display_names", refresh_slugs=refresh_slugs, stdout=out)
         messages.success(request, out.getvalue().strip().split("\n")[-1])
         return redirect(reverse("admin:catalog_manufacturer_changelist"))
+
+    def extract_logo_view(self, request, pk):
+        if request.method != "POST":
+            return JsonResponse({"ok": False, "error": "POST required"}, status=405)
+
+        try:
+            mfr = Manufacturer.objects.get(pk=pk)
+        except Manufacturer.DoesNotExist:
+            return JsonResponse({"ok": False, "error": "Not found"}, status=404)
+
+        from catalog.services.logo_pipeline import extract_logo_for_manufacturer
+        result = extract_logo_for_manufacturer(mfr, force=True)
+
+        if result["ok"]:
+            messages.success(request, f"Logo extracted: {result['message']}")
+        else:
+            messages.warning(request, f"Logo extraction failed: {result['message']}")
+
+        return redirect(reverse("admin:catalog_manufacturer_change", args=[pk]))
 
     def set_status_view(self, request, pk):
         if request.method != "POST":
@@ -636,10 +660,11 @@ class ManufacturerAdmin(admin.ModelAdmin):
         except ManufacturerProfile.DoesNotExist:
             logo = None
         if logo:
+            url = reverse("admin:catalog_manufacturer_change", args=[obj.pk])
             return format_html(
-                '<img src="{}" width="28" height="28" style="border-radius:4px; '
-                'object-fit:contain; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,0.1);" />',
-                logo.file.url,
+                '<a href="{}"><img src="{}" width="28" height="28" style="border-radius:4px; '
+                'object-fit:contain; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,0.1);" /></a>',
+                url, logo.file.url,
             )
         return ""
     logo_thumb.short_description = ""
@@ -649,17 +674,42 @@ class ManufacturerAdmin(admin.ModelAdmin):
             logo = obj.profile.logo
         except ManufacturerProfile.DoesNotExist:
             logo = None
+
+        img_html = ""
         if logo:
-            return format_html(
+            img_html = format_html(
                 '<img src="{}" style="max-width:120px; max-height:120px; border-radius:8px; '
-                'box-shadow:0 2px 8px rgba(0,0,0,0.1); background:#fff;" />',
+                'box-shadow:0 2px 8px rgba(0,0,0,0.1); background:#fff;" /><br><br>',
                 logo.file.url,
             )
+
+        if obj.pk:
+            extract_url = reverse(
+                "admin:catalog_manufacturer_extract_logo", args=[obj.pk],
+            )
+            btn_label = "Re-extract Logo" if logo else "Extract Logo"
+            return format_html(
+                '{}'
+                '<a href="#" onclick="'
+                "var f=document.createElement('form');"
+                "f.method='POST';f.action='{}';"
+                "var c=document.createElement('input');"
+                "c.type='hidden';c.name='csrfmiddlewaretoken';"
+                "c.value=document.querySelector('[name=csrfmiddlewaretoken]').value;"
+                "f.appendChild(c);document.body.appendChild(f);f.submit();"
+                'return false;" '
+                'class="button" style="padding:6px 14px;">{}</a>',
+                img_html, extract_url, btn_label,
+            )
+
+        if logo:
+            return img_html
         return "(no logo)"
     logo_preview_detail.short_description = "Logo"
 
     def display_name_col(self, obj):
-        return obj.display_name
+        url = reverse("admin:catalog_manufacturer_change", args=[obj.pk])
+        return format_html('<a href="{}">{}</a>', url, obj.display_name)
     display_name_col.short_description = "Name"
     display_name_col.admin_order_field = "profile__display_name"
 
