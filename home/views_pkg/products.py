@@ -32,14 +32,14 @@ def product_list(request):
     page_number = request.GET.get("page", 1)
 
     products = Product.objects.published().select_related(
-        "fsc", "manufacturer", "manufacturer__profile", "manufacturer__profile__logo"
-    ).order_by("nomenclature", "manufacturer__company_name")
+        "nsn", "nsn__fsc", "manufacturer", "manufacturer__profile", "manufacturer__profile__logo"
+    ).order_by("name", "manufacturer__company_name")
 
     if query:
         raw_query = re.sub(r"[^0-9A-Za-z ]", "", query)
         products = products.filter(
-            Q(nomenclature__icontains=query)
-            | Q(nsn__icontains=raw_query)
+            Q(nsn__nomenclature__icontains=query)
+            | Q(nsn__nsn__icontains=raw_query)
             | Q(name__icontains=query)
             | Q(part_number__icontains=query)
             | Q(manufacturer__profile__display_name__icontains=query)
@@ -63,33 +63,34 @@ def product_list(request):
 def product_detail(request, manufacturer_slug, part_slug):
     """Detail view for a single product."""
     product = get_object_or_404(
-        Product.objects.published().select_related("fsc", "manufacturer", "manufacturer__profile", "manufacturer__profile__logo"),
+        Product.objects.published().select_related("nsn", "nsn__fsc", "manufacturer", "manufacturer__profile", "manufacturer__profile__logo"),
         manufacturer__slug=manufacturer_slug,
         part_number_slug=part_slug,
     )
 
-    formatted_nsn = format_nsn(product.nsn) if product.nsn else ""
+    formatted_nsn = product.nsn.nsn if product.nsn else ""
 
     # Product specifications (key-value pairs)
     specs = list(product.specs.all().order_by("group", "sort_order", "label"))
 
     # Related products: same FSC first, then same manufacturer as fallback
     related = []
-    if product.fsc:
+    fsc = product.nsn.fsc if product.nsn else None
+    if fsc:
         related = list(
-            Product.objects.published().filter(fsc=product.fsc)
+            Product.objects.published().filter(nsn__fsc=fsc)
             .exclude(pk=product.pk)
-            .select_related("manufacturer", "manufacturer__profile")
-            .order_by("nomenclature")[:6]
+            .select_related("manufacturer", "manufacturer__profile", "manufacturer__profile__logo")
+            .order_by("name")[:12]
         )
-    if len(related) < 6:
+    if len(related) < 12:
         already = {p.pk for p in related} | {product.pk}
         more = (
             Product.objects.published()
             .filter(manufacturer=product.manufacturer)
             .exclude(pk__in=already)
-            .select_related("manufacturer", "manufacturer__profile")
-            .order_by("nomenclature")[:6 - len(related)]
+            .select_related("manufacturer", "manufacturer__profile", "manufacturer__profile__logo")
+            .order_by("name")[:12 - len(related)]
         )
         related.extend(more)
 
@@ -98,6 +99,7 @@ def product_detail(request, manufacturer_slug, part_slug):
         "product": product,
         "cage": product.manufacturer,  # backward compat
         "manufacturer": product.manufacturer,
+        "nsn_obj": product.nsn,
         "formatted_nsn": formatted_nsn,
         "specifications": specs,
         "related_products": related,
@@ -117,8 +119,8 @@ def manufacturer_detail(request, slug):
 
     products = (
         Product.objects.published().filter(manufacturer=org)
-        .select_related("fsc")
-        .order_by("nomenclature")
+        .select_related("nsn", "nsn__fsc")
+        .order_by("name")
     )
 
     context = {
@@ -172,18 +174,9 @@ def manufacturer_list(request):
 
 
 def product_redirect(request, nsn):
-    """Redirect /products/<nsn>/ to the first product for that NSN."""
-    raw_nsn = normalize_nsn(nsn)
-    product = (
-        Product.objects.published().filter(nsn=raw_nsn)
-        .select_related("manufacturer")
-        .order_by("manufacturer__company_name")
-        .first()
-    )
-    if not product:
+    """Redirect /products/<nsn>/ to /nsn/<nsn>/."""
+    from catalog.models import NationalStockNumber
+    dashed = format_nsn(normalize_nsn(nsn))
+    if not NationalStockNumber.objects.filter(nsn=dashed).exists():
         raise Http404
-    return redirect(
-        "product_detail",
-        manufacturer_slug=product.manufacturer.slug,
-        part_slug=product.part_number_slug,
-    )
+    return redirect("nsn_detail", nsn=dashed)

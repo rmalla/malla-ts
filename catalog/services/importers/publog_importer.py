@@ -168,13 +168,12 @@ class PUBLOGImporter(BaseImporter):
         row_count = 0
 
         # Load existing product NSNs for incremental behavior
-        existing_niins = set()
-        for nsn in Product.objects.values_list("nsn", flat=True).iterator(chunk_size=10000):
-            if not nsn:
-                continue
-            parts = nsn.split("-")
-            if len(parts) == 4:
-                existing_niins.add(parts[1] + parts[2] + parts[3])
+        from catalog.models import NationalStockNumber
+        existing_niins = set(
+            NationalStockNumber.objects.exclude(niin="")
+            .values_list("niin", flat=True)
+            .iterator(chunk_size=10000)
+        )
         self.log(f"  MANAGEMENT: {len(existing_niins):,} NIINs already have products, will skip")
 
         zf = zipfile.ZipFile(MANAGEMENT_ZIP, "r")
@@ -599,16 +598,26 @@ class PUBLOGImporter(BaseImporter):
                 raw_nomenclature = info.get("nomenclature", "")
                 product_name = format_nomenclature(raw_nomenclature) if raw_nomenclature else ""
 
+                # Get or create the NSN record
+                from catalog.models import NationalStockNumber
+                nsn_fsc_id = fsc_map.get(info["fsc_code"])
+                nsn_record, _ = NationalStockNumber.objects.get_or_create(
+                    nsn=info["nsn"],
+                    defaults={
+                        "niin": niin_padded,
+                        "fsc_id": nsn_fsc_id,
+                        "nomenclature": raw_nomenclature,
+                        "unit_of_issue": info.get("unit_of_issue", ""),
+                    },
+                )
+
                 batch.append(Product(
                     manufacturer_id=cage_pk,
                     part_number=part_number,
                     part_number_slug=slugify_part_number(part_number),
                     name=product_name,
-                    nsn=info["nsn"],
-                    nomenclature=raw_nomenclature,
-                    fsc_id=fsc_map.get(info["fsc_code"]),
+                    nsn=nsn_record,
                     price=info["price"],
-                    unit_of_issue=info.get("unit_of_issue", ""),
                     source=DataSource.PUBLOG,
                 ))
                 existing_products.add(product_key)

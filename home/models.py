@@ -84,7 +84,40 @@ class StandardPage(Page):
             return 'home/about_page.html'
         if self.slug == 'industries':
             return 'home/industries_landing.html'
+        if self.slug == 'equipment':
+            return 'home/equipment_landing.html'
         return super().get_template(request, *args, **kwargs)
+
+    def get_context(self, request, *args, **kwargs):
+        context = super().get_context(request, *args, **kwargs)
+        if self.slug == 'equipment':
+            from catalog.models import Product, Manufacturer
+            from django.db.models import Count, Min, Max
+
+            manufacturers = Manufacturer.objects.select_related(
+                'profile', 'profile__logo'
+            ).filter(profile__status=Manufacturer.ENABLED).annotate(
+                product_count=Count('products', filter=models.Q(products__is_active__gte=0))
+            ).order_by('-product_count')
+
+            stats = Product.objects.published().aggregate(
+                total=Count('id'),
+                min_price=Min('price'),
+                max_price=Max('price'),
+            )
+
+            featured_products = list(
+                Product.objects.published()
+                .filter(price__isnull=False)
+                .select_related('manufacturer', 'manufacturer__profile', 'manufacturer__profile__logo')
+                .order_by('?')[:8]
+            )
+
+            context['manufacturers'] = manufacturers
+            context['stats'] = stats
+            context['featured_products'] = featured_products
+            context['total_manufacturers'] = Manufacturer.objects.count()
+        return context
 
 
 class EquipmentCategoryPage(Page):

@@ -74,14 +74,12 @@ class Product(models.Model):
     )
     description = models.TextField(blank=True)
 
-    # Denormalized from CatalogItem/CatalogPricing
+    # Pricing & NSN link
     price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, db_index=True)
-    nsn = models.CharField(max_length=300, blank=True, db_index=True)
-    nomenclature = models.CharField(max_length=500, blank=True)
-    fsc = models.ForeignKey(
-        "home.FederalSupplyClass", on_delete=models.SET_NULL, null=True, blank=True,
+    nsn = models.ForeignKey(
+        "catalog.NationalStockNumber", null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="products",
     )
-    unit_of_issue = models.CharField(max_length=20, blank=True)
 
     # Source tracking
     source = models.CharField(
@@ -125,15 +123,15 @@ class Product(models.Model):
 
     def save(self, *args, **kwargs):
         self.part_number_slug = slugify_part_number(self.part_number)
-        # Auto-populate display_name from nomenclature if not manually set
-        if not self.display_name and self.nomenclature:
+        # Auto-populate display_name from NSN nomenclature if not manually set
+        if not self.display_name and self.nsn_id and self.nsn and self.nsn.nomenclature:
             from catalog.services.name_formatter import naturalize_nomenclature
-            self.display_name = naturalize_nomenclature(self.nomenclature)
+            self.display_name = naturalize_nomenclature(self.nsn.nomenclature)
         super().save(*args, **kwargs)
 
     def get_display_name(self):
-        """Fallback chain: display_name field → name → nomenclature → part_number."""
-        return self.display_name or self.name or self.nomenclature or self.part_number or "(unnamed)"
+        """Fallback chain: display_name → name → nsn.nomenclature → part_number."""
+        return self.display_name or self.name or (self.nsn.nomenclature if self.nsn_id else "") or self.part_number or "(unnamed)"
 
 
 # ── ProductSpecification ───────────────────────────────────────────────────

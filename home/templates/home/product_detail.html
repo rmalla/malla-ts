@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static humanize %}
 
-{% block title %}{{ product.get_display_name }}{% endblock %}
+{% block title %}{{ product.get_display_name }} - {{ manufacturer.display_name }}{% if product.part_number %} PN {{ product.part_number }}{% endif %}{% endblock %}
 
 {% block meta_description %}
 <meta name="description" content="{{ product.get_display_name }} by {{ manufacturer.display_name }}{% if product.part_number %}, Part Number {{ product.part_number }}{% endif %}{% if product.price %}, ${{ product.price|floatformat:2|intcomma }}{% endif %}. Request a quote from Malla Technical Services." />
@@ -17,10 +17,16 @@
 <meta property="og:url" content="https://www.malla-ts.com{% url 'product_detail' manufacturer.slug product.part_number_slug %}" />
 <meta property="og:type" content="product" />
 <meta property="og:site_name" content="Malla Technical Services" />
+{% if manufacturer.profile.logo %}
+<meta property="og:image" content="https://www.malla-ts.com{{ manufacturer.profile.logo.file.url }}" />
+{% else %}
 <meta property="og:image" content="https://www.malla-ts.com{% static 'images/og-image.png' %}" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
+{% endif %}
 <meta property="og:locale" content="en_US" />
+<meta property="product:brand" content="{{ manufacturer.display_name }}" />
+{% if product.part_number %}<meta property="product:retailer_item_id" content="{{ product.part_number }}" />{% endif %}
 {% if product.price %}
 <meta property="product:price:amount" content="{{ product.price }}" />
 <meta property="product:price:currency" content="USD" />
@@ -31,7 +37,11 @@
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="{{ product.get_display_name }} - {{ manufacturer.display_name }}" />
 <meta name="twitter:description" content="{{ product.get_display_name }} by {{ manufacturer.display_name }}{% if product.part_number %}, PN {{ product.part_number }}{% endif %}. Get pricing and availability." />
+{% if manufacturer.profile.logo %}
+<meta name="twitter:image" content="https://www.malla-ts.com{{ manufacturer.profile.logo.file.url }}" />
+{% else %}
 <meta name="twitter:image" content="https://www.malla-ts.com{% static 'images/og-image.png' %}" />
+{% endif %}
 {% endblock %}
 
 {% block extra_structured_data %}
@@ -40,8 +50,9 @@
     "@context": "https://schema.org",
     "@type": "Product",
     "name": "{{ product.get_display_name }}",
-    "description": "{{ product.get_display_name }}{% if product.part_number %} — Part Number {{ product.part_number }}{% endif %}{% if manufacturer %} by {{ manufacturer.display_name }}{% endif %}",
+    "description": "{{ product.get_display_name }}{% if product.part_number %}, Part Number {{ product.part_number }}{% endif %} manufactured by {{ manufacturer.display_name }}.{% if product.price %} Unit price ${{ product.price|floatformat:2 }}.{% endif %}{% if nsn_obj and nsn_obj.fsc %} Federal Supply Class {{ nsn_obj.fsc.code }}{% if nsn_obj.fsc.name %} — {{ nsn_obj.fsc.name }}{% endif %}.{% endif %} Available from Malla Technical Services.",
     "url": "https://www.malla-ts.com{% url 'product_detail' manufacturer.slug product.part_number_slug %}",
+    {% if manufacturer.profile.logo %}"image": "https://www.malla-ts.com{{ manufacturer.profile.logo.file.url }}",{% else %}"image": "https://www.malla-ts.com{% static 'images/og-image.png' %}",{% endif %}
     {% if product.part_number %}"sku": "{{ product.part_number }}",{% endif %}
     {% if product.part_number %}"mpn": "{{ product.part_number }}",{% endif %}
     "manufacturer": {
@@ -54,16 +65,29 @@
         "price": "{{ product.price }}",
         "priceCurrency": "USD",
         "availability": "https://schema.org/InStock",
-        "url": "https://www.malla-ts.com{% url 'product_detail' manufacturer.slug product.part_number_slug %}"
+        "itemCondition": "https://schema.org/NewCondition",
+        "url": "https://www.malla-ts.com{% url 'product_detail' manufacturer.slug product.part_number_slug %}",
+        "seller": {
+            "@type": "Organization",
+            "name": "Malla Technical Services",
+            "url": "https://www.malla-ts.com"
+        }
     },
     {% endif %}
-    {% if product.fsc %}
-    "category": "FSC {{ product.fsc.code }}{% if product.fsc.name %} - {{ product.fsc.name }}{% endif %}",
+    {% if nsn_obj and nsn_obj.fsc %}
+    "category": "FSC {{ nsn_obj.fsc.code }}{% if nsn_obj.fsc.name %} - {{ nsn_obj.fsc.name }}{% endif %}",
     {% endif %}
     "brand": {
         "@type": "Organization",
         "name": "{{ manufacturer.display_name }}"
-    }
+    }{% if specifications %},
+    "additionalProperty": [{% for spec in specifications %}{% if not forloop.first %},{% endif %}
+        {
+            "@type": "PropertyValue",
+            "name": "{{ spec.label }}",
+            "value": "{{ spec.value }}"
+        }{% endfor %}
+    ]{% endif %}
 }
 </script>
 
@@ -99,6 +123,38 @@
     ]
 }
 </script>
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+        {
+            "@type": "Question",
+            "name": "How do I order {{ product.get_display_name }}{% if product.part_number %} ({{ product.part_number }}){% endif %}?",
+            "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "You can request a quote for {{ product.get_display_name }} by {{ manufacturer.display_name }} directly on this page or by calling Malla Technical Services at +1 855 706 2552. We provide pricing, availability, and delivery estimates."
+            }
+        },
+        {
+            "@type": "Question",
+            "name": "Who manufactures {{ product.get_display_name }}{% if product.part_number %} ({{ product.part_number }}){% endif %}?",
+            "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "{{ product.get_display_name }} is manufactured by {{ manufacturer.display_name }}. Malla Technical Services is an authorized procurement partner offering this product{% if product.price %} at ${{ product.price|floatformat:2 }} per unit{% endif %}."
+            }
+        }{% if product.price %},
+        {
+            "@type": "Question",
+            "name": "What is the price of {{ product.get_display_name }}{% if product.part_number %} ({{ product.part_number }}){% endif %}?",
+            "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "The listed unit price for {{ product.get_display_name }} by {{ manufacturer.display_name }} is ${{ product.price|floatformat:2 }} USD. Contact us for volume pricing and current availability."
+            }
+        }{% endif %}
+    ]
+}
+</script>
 {% endblock %}
 
 {% block content %}
@@ -112,7 +168,7 @@
             <span class="separator">/</span>
             <span class="current">{{ product.part_number|default:product.get_display_name|truncatewords:6 }}</span>
         </nav>
-        <h1>{{ product.get_display_name }}</h1>
+        <h1>{{ product.get_display_name }}{% if product.part_number %} — {{ product.part_number }}{% endif %}</h1>
         <p class="page-intro nsn-item-title"><a href="{% url 'manufacturer_detail' manufacturer.slug %}" style="color: inherit; text-decoration: underline;">{{ manufacturer.display_name }}</a>{% if product.part_number %} | PN: {{ product.part_number }}{% endif %}</p>
     </div>
 </section>
@@ -127,9 +183,9 @@
                 <!-- Product Image -->
                 <div class="product-image-card">
                     {% if manufacturer.profile.logo %}
-                    <img src="{{ manufacturer.profile.logo.file.url }}" alt="{{ product.get_display_name }}" class="product-hero-image" />
+                    <img src="{{ manufacturer.profile.logo.file.url }}" alt="{{ product.get_display_name }} by {{ manufacturer.display_name }}{% if product.part_number %}, PN {{ product.part_number }}{% endif %}" class="product-hero-image" fetchpriority="high" />
                     {% else %}
-                    <img src="{% static 'images/logo_malla.png' %}" alt="{{ product.get_display_name }}" class="product-hero-image product-hero-image--fallback" />
+                    <img src="{% static 'images/logo_malla.png' %}" alt="{{ product.get_display_name }} by {{ manufacturer.display_name }}{% if product.part_number %}, PN {{ product.part_number }}{% endif %}" class="product-hero-image product-hero-image--fallback" fetchpriority="high" />
                     {% endif %}
                 </div>
 
@@ -164,10 +220,10 @@
                             <td class="price-value">${{ product.price|floatformat:2|intcomma }}</td>
                         </tr>
                         {% endif %}
-                        {% if product.unit_of_issue %}
+                        {% if nsn_obj and nsn_obj.unit_of_issue %}
                         <tr>
                             <th>Unit of Issue</th>
-                            <td>{{ product.unit_of_issue }}</td>
+                            <td>{{ nsn_obj.unit_of_issue }}</td>
                         </tr>
                         {% endif %}
                     </table>
@@ -249,12 +305,38 @@
             <div class="related-grid">
                 {% for related in related_products %}
                 <a href="{% url 'product_detail' related.manufacturer.slug related.part_number_slug %}" class="related-card">
-                    <span class="related-name">{{ related.get_display_name }}</span>
-                    <span class="related-price">{{ related.manufacturer.display_name }}</span>
+                    <div class="related-card-image">
+                        {% if related.manufacturer.profile.logo %}
+                        <img src="{{ related.manufacturer.profile.logo.file.url }}" alt="{{ related.manufacturer.display_name }}" loading="lazy" />
+                        {% else %}
+                        <img src="{% static 'images/logo_malla.png' %}" alt="{{ related.manufacturer.display_name }}" class="related-card-image--fallback" loading="lazy" />
+                        {% endif %}
+                    </div>
+                    <div class="related-card-info">
+                        <span class="related-manufacturer">{{ related.manufacturer.display_name }}</span>
+                        <span class="related-part-number">{{ related.part_number }}</span>
+                        <span class="related-name">{{ related.get_display_name }}</span>
+                        {% if related.price %}<span class="related-price">${{ related.price|floatformat:2 }}</span>{% endif %}
+                    </div>
                 </a>
                 {% endfor %}
             </div>
         </div>
+        <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@type": "ItemList",
+            "name": "Related Products",
+            "numberOfItems": {{ related_products|length }},
+            "itemListElement": [{% for related in related_products %}{% if not forloop.first %},{% endif %}
+                {
+                    "@type": "ListItem",
+                    "position": {{ forloop.counter }},
+                    "url": "https://www.malla-ts.com{% url 'product_detail' related.manufacturer.slug related.part_number_slug %}"
+                }{% endfor %}
+            ]
+        }
+        </script>
         {% endif %}
 
         <!-- Back Link -->

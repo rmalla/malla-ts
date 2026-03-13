@@ -9,6 +9,7 @@ from .constants import FilterFieldType, FilterAction, PipelineStage
 from .models import (
     Manufacturer,
     ManufacturerProfile,
+    NationalStockNumber,
     PipelineFilter,
     ImportJob,
     ImportJobLog,
@@ -256,7 +257,7 @@ class ManufacturerAdmin(admin.ModelAdmin):
             if value:
                 from django.db.models import Q
                 return queryset.filter(
-                    Q(products__nomenclature__icontains=value) |
+                    Q(products__nsn__nomenclature__icontains=value) |
                     Q(products__name__icontains=value)
                 ).distinct(), False
             return queryset, False
@@ -722,6 +723,29 @@ class ManufacturerAdmin(admin.ModelAdmin):
 
 
 # =============================================================================
+# National Stock Numbers
+# =============================================================================
+
+@admin.register(NationalStockNumber)
+class NationalStockNumberAdmin(admin.ModelAdmin):
+    list_display = ("nsn", "nomenclature", "fsc", "unit_of_issue", "is_active", "product_count")
+    list_filter = ("is_active",)
+    search_fields = ("nsn", "nomenclature", "niin")
+    readonly_fields = ("created_at", "updated_at")
+    raw_id_fields = ("fsc",)
+    ordering = ("nsn",)
+    list_per_page = 50
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).annotate(_product_count=Count("products"))
+
+    def product_count(self, obj):
+        return obj._product_count
+    product_count.short_description = "Products"
+    product_count.admin_order_field = "_product_count"
+
+
+# =============================================================================
 # Products
 # =============================================================================
 
@@ -768,20 +792,20 @@ class PublishedFilter(admin.SimpleListFilter):
 class ProductAdmin(admin.ModelAdmin):
     change_list_template = "admin/catalog/product/change_list.html"
     list_display = (
-        "display_name_col", "nsn", "filter_manufacturer_link", "manufacturer_display",
+        "display_name_col", "nsn_display", "filter_manufacturer_link", "manufacturer_display",
         "part_number", "price_display", "source", "status_toggle", "google_search_link", "view_on_site_link",
     )
     list_filter = ("source", "is_active", PublishedFilter, ManufacturerVerifiedFilter)
     search_fields = (
-        "nsn", "nomenclature",
+        "nsn__nsn", "nsn__nomenclature",
         "part_number", "name", "display_name",
         "manufacturer__company_name", "manufacturer__cage_code",
     )
     search_help_text = "Prefixes: nsn: pn: name: mfr: cage: — or search all fields"
-    raw_id_fields = ("manufacturer", "fsc")
+    raw_id_fields = ("manufacturer", "nsn")
 
     _PREFIX_MAP = {
-        "nsn": "nsn", "pn": "part_number", "name": "name",
+        "nsn": "nsn__nsn", "pn": "part_number", "name": "name",
         "mfr": "manufacturer__company_name", "cage": "manufacturer__cage_code",
     }
 
@@ -792,7 +816,7 @@ class ProductAdmin(admin.ModelAdmin):
         return super().get_search_results(request, queryset, search_term)
     ordering = ("-created_at",)
     list_per_page = 50
-    list_select_related = ("manufacturer", "manufacturer__profile")
+    list_select_related = ("manufacturer", "manufacturer__profile", "nsn")
     inlines = [ProductSpecificationInline]
 
     class Media:
@@ -808,7 +832,7 @@ class ProductAdmin(admin.ModelAdmin):
         ("Product Info", {
             "fields": (
                 "display_name", "name", "description", "part_number",
-                "nsn", "nomenclature", "price", "fsc", "unit_of_issue",
+                "nsn", "price",
                 "source",
             ),
         }),
@@ -867,6 +891,11 @@ class ProductAdmin(admin.ModelAdmin):
         return obj.get_display_name()
     display_name_col.short_description = "Name"
     display_name_col.admin_order_field = "display_name"
+
+    def nsn_display(self, obj):
+        return obj.nsn.nsn if obj.nsn else ""
+    nsn_display.short_description = "NSN"
+    nsn_display.admin_order_field = "nsn__nsn"
 
     def price_display(self, obj):
         if obj.price:

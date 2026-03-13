@@ -60,7 +60,7 @@ Message:
 
 ---
 Submitted at: {submission.submitted_at.strftime('%Y-%m-%d %H:%M:%S')}
-View item: https://malla-ts.com/nsn/{nsn}/
+View item: https://www.malla-ts.com/nsn/{nsn}/
 """
         else:
             subject = f'New Contact Form Submission - {name}'

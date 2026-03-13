@@ -349,7 +349,7 @@ class Command(BaseCommand):
         self.stdout.write(f"  Specifications:    {ProductSpecification.objects.count():,}")
 
         with_price = Product.objects.filter(price__isnull=False).count()
-        with_nsn = Product.objects.exclude(nsn="").count()
+        with_nsn = Product.objects.filter(nsn__isnull=False).count()
         self.stdout.write(f"  Products w/ price: {with_price:,}")
         self.stdout.write(f"  Products w/ NSN:   {with_nsn:,}")
 

@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+{% load static humanize %}
+
+{% block title %}NSN {{ nsn }} — {{ nomenclature }} | Malla Technical Services{% endblock %}
+
+{% block meta_description %}
+<meta name="description" content="NSN {{ nsn }}{% if nomenclature %} — {{ nomenclature }}{% endif %}. {{ product_count }} supplier{{ product_count|pluralize }} available. Request a quote from Malla Technical Services." />
+{% endblock %}
+
+{% block canonical_url %}
+<link rel="canonical" href="https://www.malla-ts.com/nsn/{{ nsn }}/" />
+{% endblock %}
+
+{% block og_tags %}
+<meta property="og:title" content="NSN {{ nsn }} — {{ nomenclature }} - Malla Technical Services" />
+<meta property="og:description" content="NSN {{ nsn }}{% if nomenclature %} — {{ nomenclature }}{% endif %}. {{ product_count }} supplier{{ product_count|pluralize }} available." />
+<meta property="og:url" content="https://www.malla-ts.com/nsn/{{ nsn }}/" />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Malla Technical Services" />
+<meta property="og:image" content="https://www.malla-ts.com{% static 'images/og-image.png' %}" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:locale" content="en_US" />
+{% endblock %}
+
+{% block twitter_tags %}
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="NSN {{ nsn }} — {{ nomenclature }}" />
+<meta name="twitter:description" content="NSN {{ nsn }}{% if nomenclature %} — {{ nomenclature }}{% endif %}. {{ product_count }} supplier{{ product_count|pluralize }} available." />
+<meta name="twitter:image" content="https://www.malla-ts.com{% static 'images/og-image.png' %}" />
+{% endblock %}
+
+{% block extra_structured_data %}
+<script type="application/ld+json">{{ json_ld|safe }}</script>
+<script type="application/ld+json">{{ breadcrumb_ld|safe }}</script>
+{% endblock %}
+
+{% block content %}
+
+<section class="page-header page-header--with-image nsn-header" style="background-image: url('{% static 'images/hero-nsn.jpg' %}')">
+    <div class="container">
+        <nav class="breadcrumb">
+            <a href="{% url 'nsn_search' %}">NSN Search</a>
+            {% if fsc %}
+            <span class="separator">/</span>
+            <a href="{% url 'nsn_fsc_list' fsc.code %}">FSC {{ fsc.code }}</a>
+            {% endif %}
+            <span class="separator">/</span>
+            <span class="current">{{ nsn }}</span>
+        </nav>
+        <h1>NSN {{ nsn }}</h1>
+        <p class="page-intro nsn-item-title">{{ nomenclature }}</p>
+    </div>
+</section>
+
+<section class="page-content">
+    <div class="container">
+        <div class="nsn-detail-grid">
+
+            <!-- Main Content -->
+            <div class="nsn-detail-main">
+
+                <!-- NSN Info Card -->
+                <div class="nsn-detail-card">
+                    <h2>NSN Information</h2>
+                    <table class="nsn-specs-table">
+                        <tr>
+                            <th>NSN</th>
+                            <td>{{ nsn }}</td>
+                        </tr>
+                        {% if niin %}
+                        <tr>
+                            <th>NIIN</th>
+                            <td>{{ niin }}</td>
+                        </tr>
+                        {% endif %}
+                        {% if fsc %}
+                        <tr>
+                            <th>Federal Supply Class</th>
+                            <td><a href="{% url 'nsn_fsc_list' fsc.code %}">{{ fsc.code }} — {{ fsc.name }}</a></td>
+                        </tr>
+                        {% endif %}
+                        <tr>
+                            <th>Nomenclature</th>
+                            <td>{{ nomenclature }}</td>
+                        </tr>
+                        {% if unit_of_issue %}
+                        <tr>
+                            <th>Unit of Issue</th>
+                            <td>{{ unit_of_issue }}</td>
+                        </tr>
+                        {% endif %}
+                    </table>
+                </div>
+
+                <!-- Products Table -->
+                <div class="nsn-detail-card">
+                    <h2>Manufacturers ({{ product_count }})</h2>
+                    <table class="nsn-specs-table">
+                        <thead>
+                            <tr>
+                                <th>Manufacturer</th>
+                                <th>Part Number</th>
+                                <th>Price</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for product in products %}
+                            <tr>
+                                <td>
+                                    <span style="display: inline-flex; align-items: center; gap: 0.5rem;">
+                                        {% if product.manufacturer.profile.logo %}
+                                        <img src="{{ product.manufacturer.profile.logo.file.url }}" alt="" width="24" height="24" style="border-radius: 3px; vertical-align: middle;" />
+                                        {% endif %}
+                                        <a href="{% url 'manufacturer_detail' product.manufacturer.slug %}">{{ product.manufacturer.display_name }}</a>
+                                    </span>
+                                </td>
+                                <td>{{ product.part_number|default:"—" }}</td>
+                                <td>{% if product.price %}${{ product.price|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
+                                <td><a href="{% url 'product_detail' product.manufacturer.slug product.part_number_slug %}" class="btn btn-sm btn-accent">View Details</a></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+
+            <!-- Sidebar / Quote Form -->
+            <aside class="nsn-detail-sidebar">
+                <div class="nsn-quote-form-card">
+                    <h3>Request a Quote</h3>
+                    <p class="quote-intro">Get pricing and availability for NSN {{ nsn }}.</p>
+
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }}">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+
+                    <form class="nsn-quote-form" action="/contact/submit/" method="POST">
+                        {% csrf_token %}
+                        <input type="hidden" name="nsn" value="{{ nsn }}" />
+                        <input type="hidden" name="item_name" value="{{ nomenclature }}" />
+
+                        <div class="form-group">
+                            <label for="name">Name *</label>
+                            <input type="text" id="name" name="name" required />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="email">Email *</label>
+                            <input type="email" id="email" name="email" required />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="message">Message</label>
+                            <textarea id="message" name="message" rows="4">Please send pricing and availability for NSN {{ nsn }} ({{ nomenclature }}).</textarea>
+                        </div>
+
+                        <button type="submit" class="btn btn-accent btn-lg btn-block">Submit Request</button>
+                    </form>
+
+                    <div class="quote-contact">
+                        <p>Or call us directly:</p>
+                        <a href="tel:+18557062552" class="phone-link">+1 855 706 2552</a>
+                    </div>
+                </div>
+            </aside>
+
+        </div>
+
+        <!-- Related NSNs -->
+        {% if related_nsns %}
+        <div class="nsn-related">
+            <h2>Related NSNs in FSC {{ fsc.code }}</h2>
+            <div class="related-grid">
+                {% for r in related_nsns %}
+                <a href="{% url 'nsn_detail' r.nsn %}" class="related-card">
+                    <span class="related-name">{{ r.nsn }}</span>
+                    <span class="related-price">{{ r.nomenclature }}</span>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Back Link -->
+        <div class="nsn-back-link">
+            <a href="{% url 'nsn_search' %}">&larr; Back to NSN Search</a>
+        </div>
+
+    </div>
+</section>
+
+{% endblock content %}

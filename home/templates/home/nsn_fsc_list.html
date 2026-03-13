@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% load static humanize %}
+
+{% block title %}FSC {{ fsc.code }} — {{ fsc.name }} | NSN Lookup | Malla Technical Services{% endblock %}
+
+{% block meta_description %}
+<meta name="description" content="Browse {{ total_count|intcomma }} National Stock Numbers in Federal Supply Class {{ fsc.code }} — {{ fsc.name }}. Request quotes from Malla Technical Services." />
+{% endblock %}
+
+{% block canonical_url %}
+<link rel="canonical" href="https://www.malla-ts.com/nsn/fsc/{{ fsc.code }}/" />
+{% endblock %}
+
+{% block og_tags %}
+<meta property="og:title" content="FSC {{ fsc.code }} — {{ fsc.name }} - Malla Technical Services" />
+<meta property="og:description" content="Browse {{ total_count|intcomma }} NSNs in Federal Supply Class {{ fsc.code }} — {{ fsc.name }}." />
+<meta property="og:url" content="https://www.malla-ts.com/nsn/fsc/{{ fsc.code }}/" />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Malla Technical Services" />
+<meta property="og:image" content="https://www.malla-ts.com{% static 'images/og-image.png' %}" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:locale" content="en_US" />
+{% endblock %}
+
+{% block content %}
+
+<section class="page-header page-header--with-image nsn-header" style="background-image: url('{% static 'images/hero-nsn.jpg' %}')">
+    <div class="container">
+        <nav class="breadcrumb">
+            <a href="{% url 'nsn_search' %}">NSN Search</a>
+            <span class="separator">/</span>
+            <span class="current">FSC {{ fsc.code }}</span>
+        </nav>
+        <h1>FSC {{ fsc.code }} — {{ fsc.name }}</h1>
+        <p class="page-intro">{{ total_count|intcomma }} National Stock Number{{ total_count|pluralize }} in this class.</p>
+    </div>
+</section>
+
+<section class="page-content">
+    <div class="container">
+
+        <div class="nsn-detail-card">
+            <table class="nsn-specs-table">
+                <thead>
+                    <tr>
+                        <th>NSN</th>
+                        <th>Nomenclature</th>
+                        <th>Price Range</th>
+                        <th>Suppliers</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for nsn_item in nsns %}
+                    <tr>
+                        <td><a href="{% url 'nsn_detail' nsn_item.nsn %}">{{ nsn_item.nsn }}</a></td>
+                        <td>{{ nsn_item.nomenclature|default:"—" }}</td>
+                        <td>
+                            {% if nsn_item.min_price %}
+                                {% if nsn_item.min_price == nsn_item.max_price %}
+                                    ${{ nsn_item.min_price|floatformat:2|intcomma }}
+                                {% else %}
+                                    ${{ nsn_item.min_price|floatformat:2|intcomma }} – ${{ nsn_item.max_price|floatformat:2|intcomma }}
+                                {% endif %}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                        <td>{{ nsn_item.product_count }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <!-- Pagination -->
+            {% if nsns.has_other_pages %}
+            <nav class="pagination">
+                {% if nsns.has_previous %}
+                <a href="?page={{ nsns.previous_page_number }}" class="btn btn-sm">&laquo; Previous</a>
+                {% endif %}
+                <span class="page-info">Page {{ nsns.number }} of {{ nsns.paginator.num_pages }}</span>
+                {% if nsns.has_next %}
+                <a href="?page={{ nsns.next_page_number }}" class="btn btn-sm">Next &raquo;</a>
+                {% endif %}
+            </nav>
+            {% endif %}
+        </div>
+
+        <!-- Back Link -->
+        <div class="nsn-back-link">
+            <a href="{% url 'nsn_search' %}">&larr; Back to NSN Search</a>
+        </div>
+
+    </div>
+</section>
+
+{% endblock content %}

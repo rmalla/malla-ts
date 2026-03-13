@@ -315,15 +315,25 @@ class FLISHistoryImporter(BaseImporter):
                     continue
                 seen_refs.add(product_key)
 
+                # Get or create the NSN record
+                from catalog.models import NationalStockNumber
+                nsn_fsc_id = fsc_map.get(data["fsc_code"])
+                nsn_record, _ = NationalStockNumber.objects.get_or_create(
+                    nsn=data["nsn"],
+                    defaults={
+                        "niin": niin,
+                        "fsc_id": nsn_fsc_id,
+                        "nomenclature": data["nomenclature"],
+                        "unit_of_issue": data["unit_of_issue"],
+                    },
+                )
+
                 batch.append(Product(
                     manufacturer_id=cage_pk,
                     part_number=part_number,
                     part_number_slug=slugify_part_number(part_number),
-                    nsn=data["nsn"],
-                    nomenclature=data["nomenclature"],
-                    fsc_id=fsc_map.get(data["fsc_code"]),
+                    nsn=nsn_record,
                     price=data["price"],
-                    unit_of_issue=data["unit_of_issue"],
                     source=DataSource.FLIS_HISTORY,
                 ))
                 existing_products.add(product_key)

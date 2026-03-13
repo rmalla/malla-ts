@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% load static humanize %}
+
+{% block title %}NSN Search — National Stock Number Lookup | Malla Technical Services{% endblock %}
+
+{% block meta_description %}
+<meta name="description" content="Search National Stock Numbers (NSN). Browse by Federal Supply Class or search by NSN, nomenclature, or part number. Request quotes from Malla Technical Services." />
+{% endblock %}
+
+{% block canonical_url %}
+<link rel="canonical" href="https://www.malla-ts.com/nsn/" />
+{% endblock %}
+
+{% block og_tags %}
+<meta property="og:title" content="NSN Search — National Stock Number Lookup - Malla Technical Services" />
+<meta property="og:description" content="Search National Stock Numbers (NSN). Browse by Federal Supply Class or search by NSN, nomenclature, or part number." />
+<meta property="og:url" content="https://www.malla-ts.com/nsn/" />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Malla Technical Services" />
+<meta property="og:image" content="https://www.malla-ts.com{% static 'images/og-image.png' %}" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:locale" content="en_US" />
+{% endblock %}
+
+{% block content %}
+
+<section class="page-header page-header--with-image nsn-header" style="background-image: url('{% static 'images/hero-nsn.jpg' %}')">
+    <div class="container">
+        <h1>NSN Search</h1>
+        <p class="page-intro">Search National Stock Numbers by NSN, nomenclature, or part number.</p>
+    </div>
+</section>
+
+<section class="page-content">
+    <div class="container">
+
+        <!-- Search Box -->
+        <div class="nsn-detail-card" style="margin-bottom: 2rem;">
+            <form method="GET" action="{% url 'nsn_search' %}" class="product-search-form">
+                <div class="search-input-group">
+                    <input type="text" name="q" value="{{ query }}" placeholder="Search by NSN, nomenclature, or part number…" class="search-input" />
+                    <button type="submit" class="btn btn-accent">Search</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Search Results -->
+        {% if results %}
+        <div class="nsn-detail-card">
+            <h2>Results for "{{ query }}" ({{ total_count|intcomma }} NSN{{ total_count|pluralize }})</h2>
+            <table class="nsn-specs-table">
+                <thead>
+                    <tr>
+                        <th>NSN</th>
+                        <th>Nomenclature</th>
+                        <th>Price Range</th>
+                        <th>Suppliers</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for nsn_item in results %}
+                    <tr>
+                        <td><a href="{% url 'nsn_detail' nsn_item.nsn %}">{{ nsn_item.nsn }}</a></td>
+                        <td>{{ nsn_item.nomenclature|default:"—" }}</td>
+                        <td>
+                            {% if nsn_item.min_price %}
+                                {% if nsn_item.min_price == nsn_item.max_price %}
+                                    ${{ nsn_item.min_price|floatformat:2|intcomma }}
+                                {% else %}
+                                    ${{ nsn_item.min_price|floatformat:2|intcomma }} – ${{ nsn_item.max_price|floatformat:2|intcomma }}
+                                {% endif %}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                        <td>{{ nsn_item.product_count }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <!-- Pagination -->
+            {% if results.has_other_pages %}
+            <nav class="pagination">
+                {% if results.has_previous %}
+                <a href="?q={{ query }}&page={{ results.previous_page_number }}" class="btn btn-sm">&laquo; Previous</a>
+                {% endif %}
+                <span class="page-info">Page {{ results.number }} of {{ results.paginator.num_pages }}</span>
+                {% if results.has_next %}
+                <a href="?q={{ query }}&page={{ results.next_page_number }}" class="btn btn-sm">Next &raquo;</a>
+                {% endif %}
+            </nav>
+            {% endif %}
+        </div>
+        {% elif query %}
+        <div class="nsn-detail-card">
+            <p>No NSNs found for "{{ query }}".</p>
+        </div>
+        {% endif %}
+
+        <!-- FSC Categories -->
+        {% if fsc_list %}
+        <div class="nsn-detail-card">
+            <h2>Browse by Federal Supply Class</h2>
+            <div class="fsc-grid">
+                {% for fsc in fsc_list %}
+                <a href="{% url 'nsn_fsc_list' fsc.code %}" class="related-card">
+                    <span class="related-name">FSC {{ fsc.code }}</span>
+                    <span class="related-price">{{ fsc.name }}</span>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+</section>
+
+{% endblock content %}

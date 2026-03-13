@@ -216,18 +216,27 @@ class FOIAImporter(BaseImporter):
                     continue
 
                 item_name = record.get("item_name", "")
-                fsc_pk = None
+
+                nsn_record = None
                 if is_valid_nsn:
                     fsc_code = re.sub(r"\D", "", nsn)[:4]
                     fsc_pk = fsc_cache.get(fsc_code)
+                    niin = re.sub(r"\D", "", nsn)[-9:]
+                    from catalog.models import NationalStockNumber
+                    nsn_record, _ = NationalStockNumber.objects.get_or_create(
+                        nsn=nsn,
+                        defaults={
+                            "niin": niin,
+                            "fsc_id": fsc_pk,
+                            "nomenclature": item_name,
+                        },
+                    )
 
                 Product(
                     manufacturer_id=mfr_pk,
                     part_number=part_number,
                     part_number_slug=slugify_part_number(part_number),
-                    nsn=nsn if is_valid_nsn else "",
-                    nomenclature=item_name,
-                    fsc_id=fsc_pk,
+                    nsn=nsn_record,
                     price=unit_price,
                     source=DataSource.FOIA,
                 ).save()

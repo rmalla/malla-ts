@@ -1,0 +1,338 @@
+{% extends "base.html" %}
+{% load static wagtailcore_tags wagtailimages_tags humanize %}
+
+{% block body_class %}template-equipment-landing{% endblock %}
+
+{% block title %}Equipment Procurement - Industrial Valves & Flow Control | Malla Technical Services{% endblock %}
+
+{% block meta_description %}
+<meta name="description" content="Industrial equipment procurement for government, energy, and municipal sectors. Valves, flow control, and piping components from Velan, Powell, Williams, and Clow. {{ stats.total|intcomma }} products available. GSA Schedule holder." />
+{% endblock %}
+
+{% block content %}
+
+<!-- Hero -->
+<section class="page-header page-header--with-image nsn-header" style="background-image: url('{% static 'images/hero-equipment.jpg' %}')">
+    <div class="container">
+        <p class="page-header-label">Equipment Procurement</p>
+        <h1>Industrial Equipment for Government & Energy</h1>
+        <p class="page-intro">Valves, flow control, and piping components from industry-leading manufacturers — sourced, verified, and delivered to your specifications.</p>
+        <div class="hero-actions">
+            <a href="/contact/" class="btn btn-accent btn-lg">Request a Quote</a>
+            <a href="/products/" class="btn btn-white btn-lg">Browse {{ stats.total|intcomma }} Products</a>
+        </div>
+    </div>
+</section>
+
+<!-- Live Stats -->
+<section class="about-stats">
+    <div class="container">
+        <div class="about-stats-grid">
+            <div class="about-stat">
+                <span class="about-stat-number">{{ stats.total|intcomma }}</span>
+                <span class="about-stat-label">Products Available</span>
+            </div>
+            <div class="about-stat">
+                <span class="about-stat-number">{{ manufacturers|length }}</span>
+                <span class="about-stat-label">Featured Brands</span>
+            </div>
+            <div class="about-stat">
+                <span class="about-stat-number">GSA</span>
+                <span class="about-stat-label">Schedule Holder</span>
+            </div>
+            <div class="about-stat">
+                <span class="about-stat-number">50</span>
+                <span class="about-stat-label">States Covered</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Featured Manufacturers -->
+<section class="equip-brands">
+    <div class="container">
+        <div class="section-header">
+            <p class="section-title">Our Brands</p>
+            <h2 class="section-heading">Trusted Manufacturer Partners</h2>
+            <p class="section-intro">We partner directly with leading industrial manufacturers to provide genuine, certified equipment at competitive prices.</p>
+        </div>
+        <div class="equip-brands-grid">
+            {% for mfr in manufacturers %}
+            <a href="{% url 'manufacturer_detail' mfr.slug %}" class="equip-brand-card">
+                <div class="equip-brand-logo">
+                    {% if mfr.profile.logo %}
+                    <img src="{{ mfr.profile.logo.file.url }}" alt="{{ mfr.display_name }}" loading="lazy" />
+                    {% else %}
+                    <span class="equip-brand-initial">{{ mfr.display_name|first }}</span>
+                    {% endif %}
+                </div>
+                <div class="equip-brand-info">
+                    <h3>{{ mfr.display_name }}</h3>
+                    <p class="equip-brand-count">{{ mfr.product_count|intcomma }} products</p>
+                </div>
+                <span class="equip-brand-arrow">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/></svg>
+                </span>
+            </a>
+            {% endfor %}
+        </div>
+        <div style="text-align: center; margin-top: var(--space-6);">
+            <a href="{% url 'manufacturer_list' %}" class="btn btn-outline btn-lg">View All Manufacturers</a>
+        </div>
+    </div>
+</section>
+
+<!-- What We Supply -->
+<section class="equip-categories section-alt">
+    <div class="container">
+        <div class="section-header">
+            <p class="section-title">What We Supply</p>
+            <h2 class="section-heading">Equipment Categories</h2>
+            <p class="section-intro">From gate valves to gaskets, we stock and source the full range of flow control and piping components your operations require.</p>
+        </div>
+        <div class="equip-cat-grid">
+            <div class="equip-cat-card">
+                <div class="equip-cat-icon">
+                    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="16" cy="16" r="10"/><path d="M16 6v20"/><path d="M6 16h20"/><circle cx="16" cy="16" r="4"/></svg>
+                </div>
+                <h3>Gate Valves</h3>
+                <p>Full-port and reduced-bore gate valves for isolation service in high-pressure pipelines and process systems.</p>
+            </div>
+            <div class="equip-cat-card">
+                <div class="equip-cat-icon">
+                    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="16" cy="16" r="10"/><path d="M11 11l10 10"/><path d="M11 21l10-10"/></svg>
+                </div>
+                <h3>Globe Valves</h3>
+                <p>Precision throttling and flow regulation valves for steam, water, and industrial fluid applications.</p>
+            </div>
+            <div class="equip-cat-card">
+                <div class="equip-cat-icon">
+                    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="16" cy="16" r="10"/><path d="M10 16l4 4 8-8"/></svg>
+                </div>
+                <h3>Check Valves</h3>
+                <p>Swing, piston, and tilting-disc check valves to prevent backflow in critical systems.</p>
+            </div>
+            <div class="equip-cat-card">
+                <div class="equip-cat-icon">
+                    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="6" y="10" width="20" height="12" rx="2"/><path d="M6 16h20"/><path d="M12 10v12"/><path d="M20 10v12"/></svg>
+                </div>
+                <h3>Valve Components</h3>
+                <p>Stems, seats, discs, bonnets, packing, and repair kits to maintain and extend valve service life.</p>
+            </div>
+            <div class="equip-cat-card">
+                <div class="equip-cat-icon">
+                    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="16" cy="16" r="10"/><circle cx="16" cy="16" r="5"/><circle cx="16" cy="16" r="1"/></svg>
+                </div>
+                <h3>Gaskets & Seals</h3>
+                <p>Spiral wound, ring joint, and sheet gaskets for flange connections across all pressure classes.</p>
+            </div>
+            <div class="equip-cat-card">
+                <div class="equip-cat-icon">
+                    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 16h24"/><path d="M4 8h24"/><path d="M4 24h24"/><rect x="8" y="6" width="4" height="4" rx="1"/><rect x="14" y="14" width="4" height="4" rx="1"/><rect x="20" y="22" width="4" height="4" rx="1"/></svg>
+                </div>
+                <h3>Fittings & Adapters</h3>
+                <p>Flanges, couplings, adapters, and specialty fittings for pipe system assembly and modification.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Featured Products -->
+{% if featured_products %}
+<section class="equip-featured">
+    <div class="container">
+        <div class="section-header">
+            <p class="section-title">Featured Products</p>
+            <h2 class="section-heading">Sample From Our Catalog</h2>
+            <p class="section-intro">Explore a selection of products from our catalog. Every item includes full specifications, pricing, and manufacturer details.</p>
+        </div>
+        <div class="related-grid">
+            {% for product in featured_products %}
+            <a href="{% url 'product_detail' product.manufacturer.slug product.part_number_slug %}" class="related-card">
+                <div class="related-card-image">
+                    {% if product.manufacturer.profile.logo %}
+                    <img src="{{ product.manufacturer.profile.logo.file.url }}" alt="{{ product.manufacturer.display_name }}" loading="lazy" />
+                    {% else %}
+                    <img src="{% static 'images/logo_malla.png' %}" alt="{{ product.manufacturer.display_name }}" class="related-card-image--fallback" loading="lazy" />
+                    {% endif %}
+                </div>
+                <div class="related-card-info">
+                    <span class="related-manufacturer">{{ product.manufacturer.display_name }}</span>
+                    <span class="related-part-number">{{ product.part_number }}</span>
+                    <span class="related-name">{{ product.get_display_name }}</span>
+                    {% if product.price %}<span class="related-price">${{ product.price|floatformat:2 }}</span>{% endif %}
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+        <div style="text-align: center; margin-top: var(--space-6);">
+            <a href="{% url 'product_list' %}" class="btn btn-primary btn-lg">Browse All {{ stats.total|intcomma }} Products</a>
+        </div>
+    </div>
+</section>
+{% endif %}
+
+<!-- Who We Serve -->
+<section class="equip-sectors section-alt">
+    <div class="container">
+        <div class="section-header">
+            <p class="section-title">Who We Serve</p>
+            <h2 class="section-heading">Built for Government & Industrial Procurement</h2>
+            <p class="section-intro">Our equipment is sourced for the sectors where reliability is non-negotiable and compliance is mandatory.</p>
+        </div>
+        <div class="equip-sectors-grid">
+            <div class="equip-sector-card">
+                <div class="equip-sector-icon">
+                    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 4L4 10v2h24v-2L16 4z"/><rect x="6" y="12" width="4" height="14"/><rect x="14" y="12" width="4" height="14"/><rect x="22" y="12" width="4" height="14"/><path d="M2 26h28v2H2z"/></svg>
+                </div>
+                <h3>Federal Government</h3>
+                <p>DoD, DOE, VA, GSA, and federal agencies. FAR/DFAR compliant procurement with full documentation and audit trails.</p>
+                <ul class="equip-sector-tags">
+                    <li>GSA Schedule</li>
+                    <li>SAM Registered</li>
+                    <li>CAGE Coded</li>
+                </ul>
+            </div>
+            <div class="equip-sector-card">
+                <div class="equip-sector-icon">
+                    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="16" cy="16" r="12"/><path d="M16 10v6l4 2"/></svg>
+                </div>
+                <h3>Energy & Oil/Gas</h3>
+                <p>Upstream, midstream, and downstream operations. Safety-critical valves and flow control for refineries, pipelines, and power generation.</p>
+                <ul class="equip-sector-tags">
+                    <li>API Certified</li>
+                    <li>ASME Rated</li>
+                    <li>Safety Critical</li>
+                </ul>
+            </div>
+            <div class="equip-sector-card">
+                <div class="equip-sector-icon">
+                    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 28h24"/><path d="M8 28V16h6v12"/><path d="M18 28V10h6v18"/></svg>
+                </div>
+                <h3>Municipal & Water</h3>
+                <p>Water treatment plants, distribution systems, and public works. Budget-compliant sourcing with quick turnaround for critical infrastructure.</p>
+                <ul class="equip-sector-tags">
+                    <li>AWWA Standards</li>
+                    <li>NSF Certified</li>
+                    <li>Buy America</li>
+                </ul>
+            </div>
+            <div class="equip-sector-card">
+                <div class="equip-sector-icon">
+                    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 4l3 6h7l-5 4 2 7-7-4-7 4 2-7-5-4h7z"/></svg>
+                </div>
+                <h3>National Parks & Conservation</h3>
+                <p>NPS-approved equipment for remote facilities, visitor infrastructure, and conservation operations across the park system.</p>
+                <ul class="equip-sector-tags">
+                    <li>Remote Delivery</li>
+                    <li>Rugged Grade</li>
+                    <li>NPS Approved</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- How It Works -->
+<section class="equip-process">
+    <div class="container">
+        <div class="section-header">
+            <p class="section-title">How It Works</p>
+            <h2 class="section-heading">From Request to Delivery</h2>
+            <p class="section-intro">Our streamlined procurement process gets you the right equipment, on spec, on time.</p>
+        </div>
+        <div class="equip-steps">
+            <div class="equip-step">
+                <div class="equip-step-number">1</div>
+                <h3>Submit Requirements</h3>
+                <p>Tell us what you need — part numbers, specs, quantities. We accept purchase orders, RFQs, and informal requests.</p>
+            </div>
+            <div class="equip-step-connector"></div>
+            <div class="equip-step">
+                <div class="equip-step-number">2</div>
+                <h3>We Source & Quote</h3>
+                <p>Our engineers verify specifications, confirm availability with manufacturers, and provide competitive pricing.</p>
+            </div>
+            <div class="equip-step-connector"></div>
+            <div class="equip-step">
+                <div class="equip-step-number">3</div>
+                <h3>Review & Approve</h3>
+                <p>You receive a detailed quote with lead times, certifications, and compliance documentation for your review.</p>
+            </div>
+            <div class="equip-step-connector"></div>
+            <div class="equip-step">
+                <div class="equip-step-number">4</div>
+                <h3>We Deliver</h3>
+                <p>We handle procurement, quality inspection, and logistics. Equipment arrives at your facility ready for installation.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Trust Signals -->
+<section class="equip-trust section-alt">
+    <div class="container">
+        <div class="section-header">
+            <p class="section-title">Why Malla</p>
+            <h2 class="section-heading">The Procurement Advantage</h2>
+        </div>
+        <div class="equip-trust-grid">
+            <div class="equip-trust-item">
+                <div class="equip-trust-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 12l2 2 4-4"/><path d="M12 2a10 10 0 100 20 10 10 0 000-20z"/></svg>
+                </div>
+                <h4>Genuine OEM Parts</h4>
+                <p>Every product sourced directly from authorized manufacturers. No grey market, no knock-offs.</p>
+            </div>
+            <div class="equip-trust-item">
+                <div class="equip-trust-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                </div>
+                <h4>Full Compliance</h4>
+                <p>GSA Schedule holder, SAM registered, CAGE coded. Complete documentation for government audits.</p>
+            </div>
+            <div class="equip-trust-item">
+                <div class="equip-trust-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2v20M2 12h20"/><circle cx="12" cy="12" r="10"/></svg>
+                </div>
+                <h4>Nationwide Delivery</h4>
+                <p>We deliver to all 50 states including remote installations, military bases, and restricted-access facilities.</p>
+            </div>
+            <div class="equip-trust-item">
+                <div class="equip-trust-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>
+                </div>
+                <h4>Fast Turnaround</h4>
+                <p>Direct manufacturer relationships mean shorter lead times. Emergency and expedited orders available.</p>
+            </div>
+            <div class="equip-trust-item">
+                <div class="equip-trust-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M20 8v6M23 11h-6"/></svg>
+                </div>
+                <h4>Engineering Support</h4>
+                <p>Our procurement engineers help with spec verification, cross-referencing, and identifying the right replacement parts.</p>
+            </div>
+            <div class="equip-trust-item">
+                <div class="equip-trust-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8M16 17H8M10 9H8"/></svg>
+                </div>
+                <h4>Volume Pricing</h4>
+                <p>Competitive pricing through long-standing manufacturer relationships. Request bulk quotes for project-level savings.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section cta-section--with-image" style="background-image: url('{% static 'images/cta-background.jpg' %}')">
+    <div class="container">
+        <h2>Ready to Source Equipment?</h2>
+        <p>Send us your requirements, part numbers, or specs. Our procurement engineers will get back to you within one business day.</p>
+        <div class="hero-actions">
+            <a href="/contact/" class="btn btn-accent btn-lg">Request a Quote</a>
+            <a href="tel:+18557062552" class="btn btn-white btn-lg">Call +1 855 706 2552</a>
+        </div>
+    </div>
+</section>
+
+{% endblock content %}

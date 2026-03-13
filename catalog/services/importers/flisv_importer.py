@@ -257,10 +257,10 @@ class FLISVImporter(BaseImporter):
             ProductSpecification.objects.values_list("product_id", flat=True).distinct()
         )
 
-        for nsn, pk in Product.objects.values_list("nsn", "pk").iterator(chunk_size=10000):
-            if not nsn:
+        for nsn_val, pk in Product.objects.filter(nsn__isnull=False).values_list("nsn__nsn", "pk").iterator(chunk_size=10000):
+            if not nsn_val:
                 continue
-            parts = nsn.split("-")
+            parts = nsn_val.split("-")
             if len(parts) == 4:
                 niin = parts[1] + parts[2] + parts[3]
                 if pk not in already_enriched_product_pks:

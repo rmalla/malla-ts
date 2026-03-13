@@ -10,10 +10,12 @@ from .catalog import (
     DataSource,
     slugify_part_number,
 )
+from .nsn import NationalStockNumber
 
 __all__ = [
     "Manufacturer",
     "ManufacturerProfile",
+    "NationalStockNumber",
     "Product",
     "ProductSpecification",
     "FLISVCharacteristic",

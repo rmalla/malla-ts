@@ -180,12 +180,13 @@ class Command(BaseCommand):
                 SELECT COUNT(DISTINCT p.id)
                 FROM catalog_product p
                 JOIN catalog_organization m ON p.manufacturer_id = m.id
+                LEFT JOIN catalog_nsn nsn_rec ON nsn_rec.id = p.nsn_id
                 LEFT JOIN {STAGING_TABLE} r_exact
                     ON r_exact.cage_code = m.cage_code
                     AND r_exact.part_number = p.part_number
                     AND r_exact.rncc = '3'
                 JOIN {STAGING_TABLE} r_cage
-                    ON r_cage.niin = RIGHT(REPLACE(p.nsn, '-', ''), 9)
+                    ON r_cage.niin = nsn_rec.niin
                     AND r_cage.cage_code = m.cage_code
                     AND r_cage.rncc = '3'
                 WHERE p.source = 'publog'
@@ -200,22 +201,23 @@ class Command(BaseCommand):
                 SELECT
                     p.id AS product_id,
                     p.part_number AS old_pn,
-                    p.nsn,
+                    nsn_rec.nsn,
                     m.cage_code AS old_cage,
                     r3.cage_code AS new_cage,
                     r3.part_number AS new_pn
                 FROM catalog_product p
                 JOIN catalog_organization m ON p.manufacturer_id = m.id
+                LEFT JOIN catalog_nsn nsn_rec ON nsn_rec.id = p.nsn_id
                 LEFT JOIN {STAGING_TABLE} r_exact
                     ON r_exact.cage_code = m.cage_code
                     AND r_exact.part_number = p.part_number
                     AND r_exact.rncc = '3'
                 LEFT JOIN {STAGING_TABLE} r_cage
-                    ON r_cage.niin = RIGHT(REPLACE(p.nsn, '-', ''), 9)
+                    ON r_cage.niin = nsn_rec.niin
                     AND r_cage.cage_code = m.cage_code
                     AND r_cage.rncc = '3'
                 JOIN {STAGING_TABLE} r3
-                    ON r3.niin = RIGHT(REPLACE(p.nsn, '-', ''), 9)
+                    ON r3.niin = nsn_rec.niin
                     AND r3.rncc = '3'
                 WHERE p.source = 'publog'
                     AND p.is_active = true
@@ -229,12 +231,13 @@ class Command(BaseCommand):
                 SELECT p.id
                 FROM catalog_product p
                 JOIN catalog_organization m ON p.manufacturer_id = m.id
+                LEFT JOIN catalog_nsn nsn_rec ON nsn_rec.id = p.nsn_id
                 LEFT JOIN {STAGING_TABLE} r_exact
                     ON r_exact.cage_code = m.cage_code
                     AND r_exact.part_number = p.part_number
                     AND r_exact.rncc = '3'
                 LEFT JOIN {STAGING_TABLE} r_any
-                    ON r_any.niin = RIGHT(REPLACE(p.nsn, '-', ''), 9)
+                    ON r_any.niin = nsn_rec.niin
                     AND r_any.rncc = '3'
                 WHERE p.source = 'publog'
                     AND p.is_active = true

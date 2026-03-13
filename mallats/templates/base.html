@@ -81,7 +81,7 @@
         <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
 
         {# Global stylesheets #}
-        <link rel="stylesheet" type="text/css" href="{% static 'css/mallats.css' %}?v=4.6">
+        <link rel="stylesheet" type="text/css" href="{% static 'css/mallats.css' %}?v=5.1">
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -165,6 +165,7 @@
                             <li><a href="/equipment/">Equipment</a></li>
                             <li><a href="/products/">Products</a></li>
                             <li><a href="/manufacturers/">Manufacturers</a></li>
+                            <li><a href="/nsn/">NSN Lookup</a></li>
                             <li><a href="/industries/">Industries</a></li>
                             <li><a href="/contact/">Contact</a></li>
                         </ul>
@@ -263,5 +264,23 @@
         {% block extra_js %}
         {# Override this in templates to add extra javascript #}
         {% endblock %}
+
+        <!-- Chatwoot Live Chat Widget -->
+        <script>
+          (function(d,t) {
+            var BASE_URL="https://support.malla-ts.com";
+            var g=d.createElement(t),s=d.getElementsByTagName(t)[0];
+            g.src=BASE_URL+"/packs/js/sdk.js";
+            g.defer = true;
+            g.async = true;
+            s.parentNode.insertBefore(g,s);
+            g.onload=function(){
+              window.chatwootSDK.run({
+                websiteToken: 'FnSwMK7ArANvHJR7RgcFZFq1',
+                baseUrl: BASE_URL
+              })
+            }
+          })(document,"script");
+        </script>
     </body>
 </html>

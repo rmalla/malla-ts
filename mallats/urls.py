@@ -91,6 +91,11 @@ urlpatterns = [
     path("search/", search_views.search, name="search"),
     path("contact/submit/", home_views.contact_form_submit, name="contact_submit"),
 
+    # NSN pages
+    path("nsn/", home_views.nsn_search, name="nsn_search"),
+    path("nsn/fsc/<str:fsc_code>/", home_views.nsn_fsc_list, name="nsn_fsc_list"),
+    path("nsn/<str:nsn>/", home_views.nsn_detail, name="nsn_detail"),
+
     # Products catalog
     path("products/", home_views.product_list, name="product_list"),
     path("products/<slug:manufacturer_slug>/<slug:part_slug>/", home_views.product_detail, name="product_detail"),
