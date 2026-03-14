@@ -84,25 +84,19 @@
                         <div class="mfr-header-text">
                             <h2>{{ manufacturer.display_name }}</h2>
                             <p class="mfr-header-sub">
-                                {% if manufacturer.city or manufacturer.state %}{{ manufacturer.city }}{% if manufacturer.city and manufacturer.state %}, {% endif %}{{ manufacturer.state }}{% endif %}
+                                {% if manufacturer.city or manufacturer.state or manufacturer.country %}{{ manufacturer.city }}{% if manufacturer.city and manufacturer.state %}, {% endif %}{{ manufacturer.state }}{% if manufacturer.country and manufacturer.state or manufacturer.country and manufacturer.city %}, {% endif %}{{ manufacturer.country }}{% endif %}
                                 {% if product_count %} &middot; {{ product_count }} product{{ product_count|pluralize }}{% endif %}
                             </p>
                         </div>
                     </div>
+                    {% if manufacturer.uei %}
                     <table class="nsn-specs-table">
-                        {% if manufacturer.city or manufacturer.state or manufacturer.country %}
-                        <tr>
-                            <th>Location</th>
-                            <td>{{ manufacturer.city }}{% if manufacturer.city and manufacturer.state %}, {% endif %}{{ manufacturer.state }}{% if manufacturer.country and manufacturer.state or manufacturer.country and manufacturer.city %}, {% endif %}{{ manufacturer.country }}</td>
-                        </tr>
-                        {% endif %}
-                        {% if manufacturer.uei %}
                         <tr>
                             <th>UEI</th>
                             <td>{{ manufacturer.uei }}</td>
                         </tr>
-                        {% endif %}
                     </table>
+                    {% endif %}
                 </div>
 
                 <!-- Products -->

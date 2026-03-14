@@ -6,12 +6,27 @@ from django.db.models import Count, Min, Max, Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.core.cache import cache as django_cache
 from django.views.decorators.cache import cache_page
 
-from catalog.models import Product, NationalStockNumber
+from catalog.models import Manufacturer, Product, NationalStockNumber
 from home.models import FederalSupplyClass
 
 from .products import format_nsn, normalize_nsn
+
+
+def _enabled_manufacturer_ids():
+    """Return IDs of manufacturers with an enabled profile. Tiny query (~4 rows)."""
+    return list(
+        Manufacturer.objects.filter(profile__status=Manufacturer.ENABLED)
+        .values_list("id", flat=True)
+    )
+
+
+def _published_product_filter():
+    """Q filter equivalent to Product.objects.published() but using manufacturer IDs."""
+    mfr_ids = _enabled_manufacturer_ids()
+    return Q(is_active=1) | Q(is_active=0, manufacturer_id__in=mfr_ids)
 
 
 @cache_page(60 * 60 * 24)
@@ -34,9 +49,10 @@ def nsn_detail(request, nsn):
     if not nsn_obj:
         raise Http404
 
+    pub_q = _published_product_filter()
+
     products = (
-        Product.objects.published()
-        .filter(nsn=nsn_obj)
+        Product.objects.filter(pub_q, nsn=nsn_obj)
         .select_related("nsn", "nsn__fsc", "manufacturer", "manufacturer__profile", "manufacturer__profile__logo")
         .order_by("manufacturer__company_name")
     )
@@ -55,7 +71,7 @@ def nsn_detail(request, nsn):
             NationalStockNumber.objects
             .filter(fsc=fsc)
             .exclude(pk=nsn_obj.pk)
-            .filter(products__in=Product.objects.published())
+            .filter(products__in=Product.objects.filter(pub_q))
             .values("nsn", "nomenclature")
             .order_by("nsn")
             .distinct()[:12]
@@ -136,6 +152,9 @@ def nsn_search(request):
     results = None
     total_count = 0
 
+    pub_q = _published_product_filter()
+    published_products = Product.objects.filter(pub_q)
+
     if query:
         raw_query = re.sub(r"[^0-9A-Za-z ]", "", query)
         # Search NationalStockNumber directly, but only those with published products
@@ -146,12 +165,12 @@ def nsn_search(request):
                 | Q(nomenclature__icontains=query)
                 | Q(niin__icontains=raw_query)
             )
-            .filter(products__in=Product.objects.published())
+            .filter(products__in=published_products)
             .annotate(
                 min_price=Min("products__price"),
                 max_price=Max("products__price"),
                 product_count=Count("products", filter=Q(
-                    products__in=Product.objects.published()
+                    products__in=published_products
                 )),
             )
             .order_by("nsn")
@@ -161,16 +180,20 @@ def nsn_search(request):
         paginator = Paginator(nsns, 25)
         results = paginator.get_page(page_number)
 
-    # FSC categories for browsing
-    fsc_list = (
-        FederalSupplyClass.objects.annotate(
-            nsn_count=Count("nsns", filter=Q(
-                nsns__products__in=Product.objects.published(),
-            ))
+    # FSC categories for browsing (cached separately — rarely changes)
+    fsc_list = django_cache.get("nsn_fsc_list_active")
+    if fsc_list is None:
+        mfr_ids = _enabled_manufacturer_ids()
+        fsc_list = list(
+            FederalSupplyClass.objects
+            .filter(
+                nsns__products__is_active__gte=0,
+                nsns__products__manufacturer_id__in=mfr_ids,
+            )
+            .distinct()
+            .order_by("code")
         )
-        .filter(nsn_count__gt=0)
-        .order_by("code")
-    )
+        django_cache.set("nsn_fsc_list_active", fsc_list, 60 * 60 * 6)
 
     search_ld = json.dumps({
         "@context": "https://schema.org",
@@ -200,15 +223,18 @@ def nsn_fsc_list(request, fsc_code):
     fsc = get_object_or_404(FederalSupplyClass, code=fsc_code)
     page_number = request.GET.get("page", 1)
 
+    pub_q = _published_product_filter()
+    published_products = Product.objects.filter(pub_q)
+
     nsns = (
         NationalStockNumber.objects
         .filter(fsc=fsc)
-        .filter(products__in=Product.objects.published())
+        .filter(products__in=published_products)
         .annotate(
             min_price=Min("products__price"),
             max_price=Max("products__price"),
             product_count=Count("products", filter=Q(
-                products__in=Product.objects.published()
+                products__in=published_products
             )),
         )
         .order_by("nsn")
