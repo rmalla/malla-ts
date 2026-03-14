@@ -1,8 +1,7 @@
 import re
 
 from django.db import models
-from django.contrib.postgres.indexes import GinIndex
-from django.contrib.postgres.search import SearchVectorField
+from django.db.models import Q
 
 
 def slugify_part_number(part_number):
@@ -59,7 +58,7 @@ class Product(models.Model):
     )
     part_number = models.CharField(max_length=200, blank=True)
     part_number_slug = models.SlugField(
-        max_length=220, blank=True, db_index=True,
+        max_length=220, blank=True,
         help_text="URL-friendly part number, auto-generated",
     )
 
@@ -75,7 +74,7 @@ class Product(models.Model):
     description = models.TextField(blank=True)
 
     # Pricing & NSN link
-    price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, db_index=True)
+    price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     nsn = models.ForeignKey(
         "catalog.NationalStockNumber", null=True, blank=True,
         on_delete=models.SET_NULL, related_name="products",
@@ -102,9 +101,6 @@ class Product(models.Model):
 
     objects = ProductQuerySet.as_manager()
 
-    # Search
-    search_vector = SearchVectorField(null=True, blank=True)
-
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -112,10 +108,23 @@ class Product(models.Model):
     class Meta:
         verbose_name = "Product"
         verbose_name_plural = "Products"
-        unique_together = [("manufacturer", "part_number")]
         indexes = [
             models.Index(fields=["manufacturer", "part_number_slug"]),
-            GinIndex(fields=["search_vector"]),
+            models.Index(
+                fields=["manufacturer"],
+                name="catalog_prod_publishable",
+                condition=Q(is_active__gte=0),
+            ),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["manufacturer", "part_number"],
+                name="catalog_product_mfr_partnum_uniq",
+            ),
+            models.CheckConstraint(
+                condition=Q(is_active__in=[-1, 0, 1]),
+                name="catalog_product_is_active_valid",
+            ),
         ]
 
     def __str__(self):
@@ -141,7 +150,7 @@ class ProductSpecification(models.Model):
 
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="specs")
     group = models.CharField(
-        max_length=100, db_index=True,
+        max_length=100,
         help_text="Category: Dimensions, Electrical, Material, etc.",
     )
     label = models.CharField(max_length=200)
@@ -156,19 +165,3 @@ class ProductSpecification(models.Model):
 
     def __str__(self):
         return f"{self.label}: {self.value}"
-
-
-# ── FLISVCharacteristic (staging table for FLISV.CSV bulk load) ───────────
-
-class FLISVCharacteristic(models.Model):
-    """Staging table for FLISV.CSV data, loaded via PostgreSQL COPY.
-    Used for fast SQL-based enrichment instead of streaming 50M CSV rows."""
-
-    niin = models.CharField(max_length=9, db_index=True)
-    mrc = models.CharField(max_length=10)
-    mode_code = models.CharField(max_length=1, blank=True)
-    coded_reply = models.TextField()
-
-    class Meta:
-        db_table = "catalog_flisv_characteristic"
-        indexes = [models.Index(fields=["niin"])]

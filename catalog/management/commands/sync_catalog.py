@@ -4,7 +4,7 @@ from django.core.management.base import BaseCommand, CommandError
 
 from catalog.constants import DLA_DATA_DIR, JobStatus
 from catalog.models import ImportJob, Product, Manufacturer
-from catalog.models.catalog import FLISVCharacteristic, ProductSpecification
+from catalog.models.catalog import ProductSpecification
 from catalog.services.importers import (
     FLISHistoryImporter,
     PUBLOGImporter,

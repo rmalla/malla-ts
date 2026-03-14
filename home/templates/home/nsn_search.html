@@ -1,20 +1,26 @@
 {% extends "base.html" %}
 {% load static humanize %}
 
-{% block title %}NSN Search — National Stock Number Lookup | Malla Technical Services{% endblock %}
+{% block title %}{{ page_title }} | Malla Technical Services{% endblock %}
 
 {% block meta_description %}
-<meta name="description" content="Search National Stock Numbers (NSN). Browse by Federal Supply Class or search by NSN, nomenclature, or part number. Request quotes from Malla Technical Services." />
+<meta name="description" content="{{ meta_desc }}" />
 {% endblock %}
 
 {% block canonical_url %}
-<link rel="canonical" href="https://www.malla-ts.com/nsn/" />
+<link rel="canonical" href="https://www.malla-ts.com/nsn/{% if pagination_qs %}?{{ pagination_qs }}{% endif %}" />
+{% if results.has_previous %}
+<link rel="prev" href="https://www.malla-ts.com/nsn/?{% if pagination_qs %}{{ pagination_qs }}&{% endif %}page={{ results.previous_page_number }}" />
+{% endif %}
+{% if results.has_next %}
+<link rel="next" href="https://www.malla-ts.com/nsn/?{% if pagination_qs %}{{ pagination_qs }}&{% endif %}page={{ results.next_page_number }}" />
+{% endif %}
 {% endblock %}
 
 {% block og_tags %}
-<meta property="og:title" content="NSN Search — National Stock Number Lookup - Malla Technical Services" />
-<meta property="og:description" content="Search National Stock Numbers (NSN). Browse by Federal Supply Class or search by NSN, nomenclature, or part number." />
-<meta property="og:url" content="https://www.malla-ts.com/nsn/" />
+<meta property="og:title" content="{{ page_title }} - Malla Technical Services" />
+<meta property="og:description" content="{{ meta_desc }}" />
+<meta property="og:url" content="https://www.malla-ts.com/nsn/{% if pagination_qs %}?{{ pagination_qs }}{% endif %}" />
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="Malla Technical Services" />
 <meta property="og:image" content="https://www.malla-ts.com{% static 'images/og-image.png' %}" />
@@ -27,14 +33,20 @@
 {% if search_ld %}
 <script type="application/ld+json">{{ search_ld|safe }}</script>
 {% endif %}
+{% if breadcrumb_ld %}
+<script type="application/ld+json">{{ breadcrumb_ld|safe }}</script>
+{% endif %}
+{% if item_list_ld %}
+<script type="application/ld+json">{{ item_list_ld|safe }}</script>
+{% endif %}
 {% endblock %}
 
 {% block content %}
 
 <section class="page-header page-header--with-image nsn-header" style="background-image: url('{% static 'images/hero-nsn.jpg' %}')">
     <div class="container">
-        <h1>NSN Search</h1>
-        <p class="page-intro">Search National Stock Numbers by NSN, nomenclature, or part number.</p>
+        <h1>NSN Lookup</h1>
+        <p class="page-intro">Browse {{ total_count|intcomma }} National Stock Numbers. Search by NSN, nomenclature, or part number.</p>
     </div>
 </section>
 
@@ -42,93 +54,156 @@
     <div class="container">
 
         <!-- Search Box -->
-        <div class="nsn-detail-card" style="margin-bottom: 2rem;">
+        <div class="nsn-detail-card" style="margin-bottom: 1.5rem;">
             <form method="GET" action="{% url 'nsn_search' %}" class="product-search-form">
+                {% if fsc_code %}
+                <input type="hidden" name="fsc" value="{{ fsc_code }}" />
+                {% endif %}
                 <div class="search-input-group">
                     <input type="text" name="q" value="{{ query }}" placeholder="Search by NSN, nomenclature, or part number…" class="search-input" />
                     <button type="submit" class="btn btn-accent">Search</button>
                 </div>
             </form>
-        </div>
-
-        <!-- Search Results -->
-        {% if results %}
-        <div class="nsn-detail-card">
-            <h2>Results for "{{ query }}" ({{ total_count|intcomma }} NSN{{ total_count|pluralize }})</h2>
-            <table class="nsn-specs-table">
-                <thead>
-                    <tr>
-                        <th>NSN</th>
-                        <th>Nomenclature</th>
-                        <th>Price Range</th>
-                        <th>Suppliers</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for nsn_item in results %}
-                    <tr>
-                        <td><a href="{% url 'nsn_detail' nsn_item.nsn %}">{{ nsn_item.nsn }}</a></td>
-                        <td>{{ nsn_item.nomenclature|default:"—" }}</td>
-                        <td>
-                            {% if nsn_item.min_price %}
-                                {% if nsn_item.min_price == nsn_item.max_price %}
-                                    ${{ nsn_item.min_price|floatformat:2|intcomma }}
-                                {% else %}
-                                    ${{ nsn_item.min_price|floatformat:2|intcomma }} – ${{ nsn_item.max_price|floatformat:2|intcomma }}
-                                {% endif %}
-                            {% else %}
-                                —
-                            {% endif %}
-                        </td>
-                        <td>{{ nsn_item.product_count }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-
-            <!-- Pagination -->
-            {% if results.has_other_pages %}
-            <nav class="pagination">
-                {% if results.has_previous %}
-                <a href="?q={{ query }}&page=1" class="btn btn-sm">&laquo;</a>
-                <a href="?q={{ query }}&page={{ results.previous_page_number }}" class="btn btn-sm">&lsaquo;</a>
+            {% if active_fsc or query %}
+            <div class="nsn-active-filters">
+                {% if active_fsc %}
+                <span class="nsn-filter-tag">
+                    FSC {{ active_fsc.code }} — {{ active_fsc.name }}
+                    <a href="{% url 'nsn_search' %}{% if query %}?q={{ query }}{% endif %}" class="nsn-filter-remove" title="Remove filter">&times;</a>
+                </span>
                 {% endif %}
-                {% for page_num in results.paginator.page_range %}
-                    {% if page_num == results.number %}
-                    <span class="btn btn-sm btn-accent">{{ page_num }}</span>
-                    {% elif page_num == 1 or page_num == results.paginator.num_pages or page_num >= results.number|add:"-2" and page_num <= results.number|add:"2" %}
-                    <a href="?q={{ query }}&page={{ page_num }}" class="btn btn-sm">{{ page_num }}</a>
-                    {% elif page_num == 2 and results.number > 4 or page_num == results.paginator.num_pages|add:"-1" and results.number < results.paginator.num_pages|add:"-3" %}
-                    <span class="page-ellipsis">&hellip;</span>
-                    {% endif %}
-                {% endfor %}
-                {% if results.has_next %}
-                <a href="?q={{ query }}&page={{ results.next_page_number }}" class="btn btn-sm">&rsaquo;</a>
-                <a href="?q={{ query }}&page={{ results.paginator.num_pages }}" class="btn btn-sm">&raquo;</a>
+                {% if query %}
+                <span class="nsn-filter-tag">
+                    "{{ query }}"
+                    <a href="{% url 'nsn_search' %}{% if fsc_code %}?fsc={{ fsc_code }}{% endif %}" class="nsn-filter-remove" title="Remove search">&times;</a>
+                </span>
                 {% endif %}
-            </nav>
+                <a href="{% url 'nsn_search' %}" class="nsn-clear-all">Clear all</a>
+            </div>
             {% endif %}
         </div>
-        {% elif query %}
-        <div class="nsn-detail-card">
-            <p>No NSNs found for "{{ query }}".</p>
-        </div>
-        {% endif %}
 
-        <!-- FSC Categories -->
-        {% if fsc_list %}
-        <div class="nsn-detail-card">
-            <h2>Browse by Federal Supply Class</h2>
-            <div class="fsc-grid">
-                {% for fsc in fsc_list %}
-                <a href="{% url 'nsn_fsc_list' fsc.code %}" class="related-card">
-                    <span class="related-name">FSC {{ fsc.code }}</span>
-                    <span class="related-price">{{ fsc.name }}</span>
-                </a>
-                {% endfor %}
+        <!-- Two-column layout: sidebar + results -->
+        <div class="nsn-browse-layout">
+
+            <!-- Sidebar: FSC filters -->
+            <aside class="nsn-filter-sidebar">
+                <button class="nsn-sidebar-toggle" onclick="this.closest('.nsn-filter-sidebar').classList.toggle('nsn-filter-sidebar--open')">
+                    <span class="nsn-sidebar-toggle-icon"></span>
+                    Filter by Supply Class
+                    {% if active_fsc %}<span class="nsn-sidebar-badge">1</span>{% endif %}
+                </button>
+                <div class="nsn-sidebar-inner">
+                    <h3 class="nsn-sidebar-title">Filter by Supply Class</h3>
+                    {% if active_fsc %}
+                    <a href="{% url 'nsn_search' %}{% if query %}?q={{ query }}{% endif %}" class="nsn-sidebar-clear">Clear filter</a>
+                    {% endif %}
+                    <nav class="nsn-fsg-list">
+                        {% for group in sidebar_groups %}
+                        <details class="fsg-group"{% if active_fsc and active_fsc.group == group.code %} open{% endif %}>
+                            <summary class="fsg-group-header">
+                                <span class="fsg-group-chevron"></span>
+                                <span class="fsg-group-name">{{ group.name }}</span>
+                                <span class="fsg-group-count">{{ group.total|intcomma }}</span>
+                            </summary>
+                            <ul class="fsc-link-list">
+                                {% for cls in group.classes %}
+                                <li>
+                                    <a href="{% url 'nsn_search' %}?fsc={{ cls.code }}{% if query %}&q={{ query }}{% endif %}"
+                                       class="fsc-link{% if fsc_code == cls.code %} fsc-link--active{% endif %}">
+                                        <span class="fsc-link-code">{{ cls.code }}</span>
+                                        <span class="fsc-link-name">{{ cls.name|default:"—" }}</span>
+                                        <span class="fsc-link-badge">{{ cls.count|intcomma }}</span>
+                                    </a>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </details>
+                        {% endfor %}
+                    </nav>
+                </div>
+            </aside>
+
+            <!-- Results -->
+            <div class="nsn-results-main">
+                {% if results %}
+                <div class="nsn-results-header">
+                    <h2>
+                        {% if active_fsc %}FSC {{ active_fsc.code }} {{ active_fsc.name }}{% elif query %}Results for "{{ query }}"{% else %}All National Stock Numbers{% endif %}
+                    </h2>
+                    <span class="nsn-results-count">{{ total_count|intcomma }} NSN{{ total_count|pluralize }}</span>
+                </div>
+
+                <table class="nsn-specs-table">
+                    <thead>
+                        <tr>
+                            <th>NSN</th>
+                            <th>Nomenclature</th>
+                            <th class="nsn-col-fsc">FSC</th>
+                            <th>Price Range</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for nsn_item in results %}
+                        <tr>
+                            <td><a href="{% url 'nsn_detail' nsn_item.nsn %}">{{ nsn_item.nsn }}</a></td>
+                            <td>{{ nsn_item.nomenclature|default:"—" }}</td>
+                            <td class="nsn-col-fsc">
+                                {% if nsn_item.fsc %}
+                                <a href="{% url 'nsn_search' %}?fsc={{ nsn_item.fsc.code }}">{{ nsn_item.fsc.code }}</a>
+                                {% else %}
+                                —
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if nsn_item.min_price %}
+                                    {% if nsn_item.min_price == nsn_item.max_price %}
+                                        ${{ nsn_item.min_price|floatformat:2|intcomma }}
+                                    {% else %}
+                                        ${{ nsn_item.min_price|floatformat:2|intcomma }} – ${{ nsn_item.max_price|floatformat:2|intcomma }}
+                                    {% endif %}
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                <!-- Pagination -->
+                {% if results.has_other_pages %}
+                <nav class="pagination" aria-label="NSN results pagination">
+                    {% if results.has_previous %}
+                    <a href="?{% if pagination_qs %}{{ pagination_qs }}&{% endif %}page=1" class="btn btn-sm" title="First page">&laquo;</a>
+                    <a href="?{% if pagination_qs %}{{ pagination_qs }}&{% endif %}page={{ results.previous_page_number }}" class="btn btn-sm" rel="prev">&lsaquo; Prev</a>
+                    {% endif %}
+
+                    {% for page_num in results.paginator.page_range %}
+                        {% if page_num == results.number %}
+                        <span class="btn btn-sm btn-accent">{{ page_num }}</span>
+                        {% elif page_num == 1 or page_num == results.paginator.num_pages or page_num >= results.number|add:"-2" and page_num <= results.number|add:"2" %}
+                        <a href="?{% if pagination_qs %}{{ pagination_qs }}&{% endif %}page={{ page_num }}" class="btn btn-sm">{{ page_num }}</a>
+                        {% elif page_num == 2 and results.number > 4 or page_num == results.paginator.num_pages|add:"-1" and results.number < results.paginator.num_pages|add:"-3" %}
+                        <span class="page-ellipsis">&hellip;</span>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if results.has_next %}
+                    <a href="?{% if pagination_qs %}{{ pagination_qs }}&{% endif %}page={{ results.next_page_number }}" class="btn btn-sm" rel="next">Next &rsaquo;</a>
+                    <a href="?{% if pagination_qs %}{{ pagination_qs }}&{% endif %}page={{ results.paginator.num_pages }}" class="btn btn-sm" title="Last page">&raquo;</a>
+                    {% endif %}
+                </nav>
+                {% endif %}
+
+                {% elif query or active_fsc %}
+                <div class="no-results">
+                    <p>No NSNs found{% if query %} for "{{ query }}"{% endif %}{% if active_fsc %} in FSC {{ active_fsc.code }}{% endif %}.</p>
+                    <a href="{% url 'nsn_search' %}">Clear filters</a>
+                </div>
+                {% endif %}
             </div>
         </div>
-        {% endif %}
 
     </div>
 </section>

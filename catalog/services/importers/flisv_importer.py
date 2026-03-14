@@ -23,7 +23,7 @@ from django.db import transaction
 
 from catalog.constants import DLA_DATA_DIR, JobType, LogLevel
 from catalog.models import Product
-from catalog.models.catalog import FLISVCharacteristic, ProductSpecification
+from catalog.models.catalog import ProductSpecification
 from .base import BaseImporter
 
 logger = logging.getLogger(__name__)
@@ -237,10 +237,13 @@ class FLISVImporter(BaseImporter):
             raise FileNotFoundError(f"MRD_1.zip not found at {MRD_ZIP}")
 
         # Check staging table is populated
-        staging_count = FLISVCharacteristic.objects.count()
+        from django.db import connection
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT count(*) FROM catalog_flisv_characteristic")
+            staging_count = cursor.fetchone()[0]
         if staging_count == 0:
             raise RuntimeError(
-                "FLISVCharacteristic staging table is empty. "
+                "catalog_flisv_characteristic staging table is empty. "
                 "Run 'sync_catalog load-flisv' first."
             )
         self.log(f"Staging table has {staging_count:,} rows")
@@ -291,11 +294,17 @@ class FLISVImporter(BaseImporter):
         for i in range(0, len(niin_list), batch_size):
             batch_niins = niin_list[i:i + batch_size]
 
-            chars = FLISVCharacteristic.objects.filter(
-                niin__in=batch_niins
-            ).values_list("niin", "mrc", "mode_code", "coded_reply")
+            from django.db import connection
+            with connection.cursor() as cursor:
+                placeholders = ",".join(["%s"] * len(batch_niins))
+                cursor.execute(
+                    f"SELECT niin, mrc, mode_code, coded_reply "
+                    f"FROM catalog_flisv_characteristic WHERE niin IN ({placeholders})",
+                    batch_niins,
+                )
+                chars = cursor.fetchall()
 
-            for niin, mrc, mode, raw_reply in chars.iterator(chunk_size=50000):
+            for niin, mrc, mode, raw_reply in chars:
                 rows_matched += 1
                 attr_name, value = _decode_reply(
                     mrc, mode, raw_reply, mrc_defs, reply_decode

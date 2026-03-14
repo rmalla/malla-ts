@@ -285,7 +285,7 @@ class ManufacturerAdmin(admin.ModelAdmin):
         }),
         ("Flags", {
             "fields": ("is_manufacturer",
-                       "resolution_status", "resolution_source", "resolved_from_api"),
+                       "resolution_status", "resolution_source"),
         }),
     )
 

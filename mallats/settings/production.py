@@ -67,12 +67,19 @@ DATABASES["default"]["CONN_MAX_AGE"] = 600  # 10-minute persistent connections
 # =============================================================================
 CACHES = {
     "default": {
-        "BACKEND": "django.core.cache.backends.dummy.DummyCache",
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": os.getenv("REDIS_URL", "redis://127.0.0.1:6379/1"),
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+        "KEY_PREFIX": "mallats",
+        "TIMEOUT": 3600,  # 1 hour default
     }
 }
 
-# Use database sessions while cache is disabled
-SESSION_ENGINE = "django.contrib.sessions.backends.db"
+# Use Redis-backed sessions (faster than DB)
+SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+SESSION_CACHE_ALIAS = "default"
 
 # =============================================================================
 # Structured Logging

@@ -10,13 +10,6 @@ IMPORTS_ROOT = Path("/var/www/html/malla-ts.com/imports")
 DLA_DATA_DIR = IMPORTS_ROOT / "dla"
 
 
-class SourceType(models.TextChoices):
-    DIBBS = "dibbs", "DIBBS"
-    SAM = "sam", "SAM.gov"
-    SLED = "sled", "SLED"
-    FOIA = "foia", "FOIA"
-
-
 class JobType(models.TextChoices):
     DIBBS_SYNC = "dibbs_sync", "DIBBS Sync"
     SAM_SYNC = "sam_sync", "SAM Sync"
@@ -43,19 +36,6 @@ class LogLevel(models.TextChoices):
     INFO = "info", "Info"
     WARNING = "warning", "Warning"
     ERROR = "error", "Error"
-
-
-class OpportunityRating(models.TextChoices):
-    HIGH = "high", "High"
-    MEDIUM = "medium", "Medium"
-    LOW = "low", "Low"
-
-
-class DIBBSStatus(models.TextChoices):
-    ACTIVE = "active", "Active"
-    CLOSED = "closed", "Closed"
-    AWARDED = "awarded", "Awarded"
-    CANCELLED = "cancelled", "Cancelled"
 
 
 class FilterFieldType(models.TextChoices):

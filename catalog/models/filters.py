@@ -49,7 +49,12 @@ class PipelineFilter(models.Model):
     class Meta:
         verbose_name = "Pipeline Filter"
         verbose_name_plural = "Pipeline Filters"
-        unique_together = [("field_type", "field_value", "stage")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["field_type", "field_value", "stage"],
+                name="catalog_pipelinefilter_type_val_stage_uniq",
+            ),
+        ]
         indexes = [
             models.Index(
                 fields=["is_active", "field_type"],

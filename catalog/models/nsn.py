@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import Q
 
 
 class NationalStockNumber(models.Model):
@@ -15,8 +16,8 @@ class NationalStockNumber(models.Model):
         (ENABLED, "Enabled"),
     ]
 
-    nsn = models.CharField(max_length=16, unique=True, db_index=True)
-    niin = models.CharField(max_length=9, db_index=True, blank=True)
+    nsn = models.CharField(max_length=16, unique=True)
+    niin = models.CharField(max_length=9, blank=True)
     fsc = models.ForeignKey(
         "home.FederalSupplyClass",
         on_delete=models.SET_NULL,
@@ -27,7 +28,7 @@ class NationalStockNumber(models.Model):
     nomenclature = models.CharField(max_length=500, blank=True)
     unit_of_issue = models.CharField(max_length=20, blank=True)
     is_active = models.SmallIntegerField(
-        default=0, choices=STATUS_CHOICES, db_index=True,
+        default=0, choices=STATUS_CHOICES,
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -37,9 +38,11 @@ class NationalStockNumber(models.Model):
         db_table = "catalog_nsn"
         verbose_name = "National Stock Number"
         verbose_name_plural = "National Stock Numbers"
-        indexes = [
-            models.Index(fields=["fsc"]),
-            models.Index(fields=["niin"]),
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(is_active__in=[-1, 0, 1]),
+                name="catalog_nsn_is_active_valid",
+            ),
         ]
 
     def __str__(self):

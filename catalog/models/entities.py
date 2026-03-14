@@ -1,6 +1,7 @@
 import re
 
 from django.db import models
+from django.db.models import Q
 from wagtail.images.models import Image
 
 from catalog.services.name_formatter import format_manufacturer_name
@@ -80,11 +81,11 @@ class Manufacturer(models.Model):
 
     # Identification
     cage_code = models.CharField(
-        max_length=5, null=True, blank=True, unique=True, db_index=True,
+        max_length=5, null=True, blank=True, unique=True,
     )
     company_name = models.CharField(max_length=255, blank=True)
     slug = models.SlugField(
-        max_length=80, unique=True, db_index=True, blank=True, default="",
+        max_length=80, unique=True, blank=True, default="",
         help_text="URL-friendly alias, auto-generated from company name",
     )
     uei = models.CharField(max_length=12, blank=True, verbose_name="Unique Entity Identifier")
@@ -108,20 +109,17 @@ class Manufacturer(models.Model):
     ]
 
     is_manufacturer = models.SmallIntegerField(
-        choices=ROLE_CHOICES, default=ROLE_NEUTRAL, db_index=True,
+        choices=ROLE_CHOICES, default=ROLE_NEUTRAL,
         help_text="Verified manufacturer? -1=No, 0=Unverified, 1=Yes",
     )
 
     # Resolution tracking
     resolution_status = models.CharField(
         max_length=20, choices=RESOLUTION_CHOICES,
-        default="unresolved", db_index=True,
+        default="unresolved",
     )
     resolution_source = models.CharField(max_length=30, blank=True)
     resolved_at = models.DateTimeField(null=True, blank=True)
-
-    # Legacy compat
-    resolved_from_api = models.BooleanField(default=False)
 
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
@@ -132,6 +130,12 @@ class Manufacturer(models.Model):
         verbose_name = "Manufacturer"
         verbose_name_plural = "Manufacturers"
         ordering = ["company_name"]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(is_manufacturer__in=[-1, 0, 1]),
+                name="catalog_organization_is_manufacturer_valid",
+            ),
+        ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -201,11 +205,6 @@ class Manufacturer(models.Model):
         self._original_company_name = self.company_name
 
 
-# Backward compat aliases
-Organization = Manufacturer
-CAGEEntity = Manufacturer
-
-
 # ── ManufacturerProfile ────────────────────────────────────────────────────
 
 class ManufacturerProfile(models.Model):
@@ -227,7 +226,6 @@ class ManufacturerProfile(models.Model):
             (Manufacturer.ENABLED, "Enabled"),
         ],
         default=Manufacturer.NEUTRAL,
-        db_index=True,
     )
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -236,10 +234,12 @@ class ManufacturerProfile(models.Model):
         verbose_name = "Manufacturer Profile"
         verbose_name_plural = "Manufacturer Profiles"
         ordering = ["display_order", "organization__company_name"]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(status__in=[-1, 0, 1]),
+                name="catalog_organizationprofile_status_valid",
+            ),
+        ]
 
     def __str__(self):
         return f"Profile for {self.organization}"
-
-
-# Backward compat aliases
-OrganizationProfile = ManufacturerProfile

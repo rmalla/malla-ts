@@ -29,6 +29,48 @@ def _published_product_filter():
     return Q(is_active=1) | Q(is_active=0, manufacturer_id__in=mfr_ids)
 
 
+def _get_sidebar_data():
+    """Build FSC sidebar grouped by FSG, with NSN counts. Cached 6 hours."""
+    sidebar = django_cache.get("nsn_sidebar_data_v2")
+    if sidebar is not None:
+        return sidebar
+
+    mfr_ids = _enabled_manufacturer_ids()
+
+    fsc_qs = (
+        FederalSupplyClass.objects
+        .filter(
+            nsns__products__is_active__gte=0,
+            nsns__products__manufacturer_id__in=mfr_ids,
+        )
+        .annotate(nsn_count=Count("nsns", distinct=True))
+        .filter(nsn_count__gt=0)
+        .order_by("code")
+    )
+
+    # Group by FSG (first 2 digits)
+    groups = {}
+    for fsc in fsc_qs:
+        fsg = fsc.group or fsc.code[:2]
+        if fsg not in groups:
+            groups[fsg] = {
+                "code": fsg,
+                "name": fsc.group_name or f"Group {fsg}",
+                "classes": [],
+                "total": 0,
+            }
+        groups[fsg]["classes"].append({
+            "code": fsc.code,
+            "name": fsc.name,
+            "count": fsc.nsn_count,
+        })
+        groups[fsg]["total"] += fsc.nsn_count
+
+    sidebar = sorted(groups.values(), key=lambda g: g["code"])
+    django_cache.set("nsn_sidebar_data_v2", sidebar, 60 * 60 * 6)
+    return sidebar
+
+
 @cache_page(60 * 60 * 24)
 def nsn_detail(request, nsn):
     """Detail page for a single NSN — shows all products with that NSN."""
@@ -119,7 +161,7 @@ def nsn_detail(request, nsn):
             {"@type": "ListItem", "position": 1, "name": "Home", "item": "https://www.malla-ts.com/"},
             {"@type": "ListItem", "position": 2, "name": "NSN Search", "item": "https://www.malla-ts.com/nsn/"},
             *(
-                [{"@type": "ListItem", "position": 3, "name": f"FSC {fsc.code}", "item": f"https://www.malla-ts.com/nsn/fsc/{fsc.code}/"},
+                [{"@type": "ListItem", "position": 3, "name": f"FSC {fsc.code}", "item": f"https://www.malla-ts.com/nsn/?fsc={fsc.code}"},
                  {"@type": "ListItem", "position": 4, "name": f"NSN {dashed}", "item": f"https://www.malla-ts.com/nsn/{dashed}/"}]
                 if fsc else
                 [{"@type": "ListItem", "position": 3, "name": f"NSN {dashed}", "item": f"https://www.malla-ts.com/nsn/{dashed}/"}]
@@ -145,56 +187,80 @@ def nsn_detail(request, nsn):
 
 @cache_page(60 * 60)
 def nsn_search(request):
-    """NSN search and browse page."""
+    """NSN browse and search page — always shows paginated results."""
     query = request.GET.get("q", "").strip()
+    fsc_code = request.GET.get("fsc", "").strip()
     page_number = request.GET.get("page", 1)
-
-    results = None
-    total_count = 0
 
     pub_q = _published_product_filter()
     published_products = Product.objects.filter(pub_q)
 
+    # Base queryset: all NSNs with published products
+    nsns = (
+        NationalStockNumber.objects
+        .filter(products__in=published_products)
+    )
+
+    # Apply FSC filter
+    active_fsc = None
+    if fsc_code:
+        active_fsc = FederalSupplyClass.objects.filter(code=fsc_code).first()
+        if active_fsc:
+            nsns = nsns.filter(fsc=active_fsc)
+
+    # Apply text search
     if query:
         raw_query = re.sub(r"[^0-9A-Za-z ]", "", query)
-        # Search NationalStockNumber directly, but only those with published products
-        nsns = (
-            NationalStockNumber.objects
-            .filter(
-                Q(nsn__icontains=raw_query)
-                | Q(nomenclature__icontains=query)
-                | Q(niin__icontains=raw_query)
-            )
-            .filter(products__in=published_products)
-            .annotate(
-                min_price=Min("products__price"),
-                max_price=Max("products__price"),
-                product_count=Count("products", filter=Q(
-                    products__in=published_products
-                )),
-            )
-            .order_by("nsn")
-            .distinct()
+        nsns = nsns.filter(
+            Q(nsn__icontains=raw_query)
+            | Q(nomenclature__icontains=query)
+            | Q(niin__icontains=raw_query)
         )
-        total_count = nsns.count()
-        paginator = Paginator(nsns, 25)
-        results = paginator.get_page(page_number)
 
-    # FSC categories for browsing (cached separately — rarely changes)
-    fsc_list = django_cache.get("nsn_fsc_list_active")
-    if fsc_list is None:
-        mfr_ids = _enabled_manufacturer_ids()
-        fsc_list = list(
-            FederalSupplyClass.objects
-            .filter(
-                nsns__products__is_active__gte=0,
-                nsns__products__manufacturer_id__in=mfr_ids,
-            )
-            .distinct()
-            .order_by("code")
+    nsns = (
+        nsns
+        .select_related("fsc")
+        .annotate(
+            min_price=Min("products__price"),
+            max_price=Max("products__price"),
         )
-        django_cache.set("nsn_fsc_list_active", fsc_list, 60 * 60 * 6)
+        .order_by("nsn")
+        .distinct()
+    )
 
+    total_count = nsns.count()
+    paginator = Paginator(nsns, 50)
+    results = paginator.get_page(page_number)
+
+    # Sidebar data
+    sidebar_groups = _get_sidebar_data()
+
+    # Build query string for pagination links (without page param)
+    qs_parts = []
+    if query:
+        qs_parts.append(f"q={query}")
+    if fsc_code:
+        qs_parts.append(f"fsc={fsc_code}")
+    pagination_qs = "&".join(qs_parts)
+
+    # Dynamic title/description
+    if active_fsc and query:
+        page_title = f"FSC {active_fsc.code} '{query}' — NSN Lookup"
+        meta_desc = f"Search results for '{query}' in FSC {active_fsc.code} {active_fsc.name}. Browse National Stock Numbers with pricing and supplier data."
+    elif active_fsc:
+        page_title = f"FSC {active_fsc.code} {active_fsc.name} — NSN Lookup"
+        meta_desc = f"Browse {total_count:,} National Stock Numbers in FSC {active_fsc.code} {active_fsc.name}. Find NSN pricing, nomenclature, and suppliers."
+    elif query:
+        page_title = f"'{query}' — NSN Search Results"
+        meta_desc = f"Search results for '{query}' — {total_count:,} National Stock Numbers found. Browse NSN pricing and supplier data."
+    else:
+        page_title = "NSN Lookup — National Stock Number Search"
+        meta_desc = f"Browse {total_count:,} National Stock Numbers. Search by NSN, nomenclature, or part number. Filter by Federal Supply Class."
+
+    if results.number > 1:
+        page_title = f"{page_title} — Page {results.number}"
+
+    # JSON-LD: SearchAction + BreadcrumbList
     search_ld = json.dumps({
         "@context": "https://schema.org",
         "@type": "WebSite",
@@ -207,58 +273,67 @@ def nsn_search(request):
         },
     })
 
+    breadcrumb_items = [
+        {"@type": "ListItem", "position": 1, "name": "Home", "item": "https://www.malla-ts.com/"},
+        {"@type": "ListItem", "position": 2, "name": "NSN Lookup", "item": "https://www.malla-ts.com/nsn/"},
+    ]
+    if active_fsc:
+        breadcrumb_items.append({
+            "@type": "ListItem", "position": 3,
+            "name": f"FSC {active_fsc.code} {active_fsc.name}",
+            "item": f"https://www.malla-ts.com/nsn/?fsc={active_fsc.code}",
+        })
+
+    breadcrumb_ld = json.dumps({
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": breadcrumb_items,
+    })
+
+    # ItemList JSON-LD for current page
+    item_list_items = []
+    for i, nsn_item in enumerate(results, 1):
+        item_list_items.append({
+            "@type": "ListItem",
+            "position": i,
+            "name": f"NSN {nsn_item.nsn} — {nsn_item.nomenclature or 'N/A'}",
+            "url": f"https://www.malla-ts.com/nsn/{nsn_item.nsn}/",
+        })
+
+    item_list_ld = json.dumps({
+        "@context": "https://schema.org",
+        "@type": "ItemList",
+        "name": page_title,
+        "numberOfItems": total_count,
+        "itemListElement": item_list_items,
+    })
+
     context = {
         "query": query,
+        "fsc_code": fsc_code,
+        "active_fsc": active_fsc,
         "results": results,
         "total_count": total_count,
-        "fsc_list": fsc_list,
+        "sidebar_groups": sidebar_groups,
+        "pagination_qs": pagination_qs,
+        "page_title": page_title,
+        "meta_desc": meta_desc,
         "search_ld": search_ld,
+        "breadcrumb_ld": breadcrumb_ld,
+        "item_list_ld": item_list_ld,
     }
     return render(request, "home/nsn_search.html", context)
 
 
 @cache_page(60 * 60)
 def nsn_fsc_list(request, fsc_code):
-    """List distinct NSNs within a Federal Supply Class."""
-    fsc = get_object_or_404(FederalSupplyClass, code=fsc_code)
-    page_number = request.GET.get("page", 1)
-
-    pub_q = _published_product_filter()
-    published_products = Product.objects.filter(pub_q)
-
-    nsns = (
-        NationalStockNumber.objects
-        .filter(fsc=fsc)
-        .filter(products__in=published_products)
-        .annotate(
-            min_price=Min("products__price"),
-            max_price=Max("products__price"),
-            product_count=Count("products", filter=Q(
-                products__in=published_products
-            )),
-        )
-        .order_by("nsn")
-        .distinct()
-    )
-
-    total_count = nsns.count()
-    paginator = Paginator(nsns, 25)
-    nsns_page = paginator.get_page(page_number)
-
-    breadcrumb_ld = json.dumps({
-        "@context": "https://schema.org",
-        "@type": "BreadcrumbList",
-        "itemListElement": [
-            {"@type": "ListItem", "position": 1, "name": "Home", "item": "https://www.malla-ts.com/"},
-            {"@type": "ListItem", "position": 2, "name": "NSN Search", "item": "https://www.malla-ts.com/nsn/"},
-            {"@type": "ListItem", "position": 3, "name": f"FSC {fsc.code} — {fsc.name}", "item": f"https://www.malla-ts.com/nsn/fsc/{fsc.code}/"},
-        ],
-    })
-
-    context = {
-        "fsc": fsc,
-        "nsns": nsns_page,
-        "total_count": total_count,
-        "breadcrumb_ld": breadcrumb_ld,
-    }
-    return render(request, "home/nsn_fsc_list.html", context)
+    """Redirect FSC detail pages to the browse page with FSC filter."""
+    # Preserve any query params
+    page = request.GET.get("page", "")
+    q = request.GET.get("q", "")
+    url = f"/nsn/?fsc={fsc_code}"
+    if q:
+        url += f"&q={q}"
+    if page and page != "1":
+        url += f"&page={page}"
+    return redirect(url, permanent=True)
