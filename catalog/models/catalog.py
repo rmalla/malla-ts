@@ -77,7 +77,7 @@ class Product(models.Model):
     price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     nsn = models.ForeignKey(
         "catalog.NationalStockNumber", null=True, blank=True,
-        on_delete=models.SET_NULL, related_name="products",
+        on_delete=models.CASCADE, related_name="products",
     )
 
     # Source tracking

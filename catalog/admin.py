@@ -6,6 +6,7 @@ from django.urls import path, reverse
 from django.utils.html import format_html
 
 from .constants import FilterFieldType, FilterAction, PipelineStage
+from home.models import FederalSupplyClass
 from .models import (
     Manufacturer,
     ManufacturerProfile,
@@ -723,13 +724,45 @@ class ManufacturerAdmin(admin.ModelAdmin):
 
 
 # =============================================================================
+# FSC Filter (shared by Product + NSN admins)
+# =============================================================================
+
+class FSCFilter(admin.SimpleListFilter):
+    title = "FSC"
+    parameter_name = "fsc"
+    template = "admin/catalog/fsc_filter.html"
+
+    def lookups(self, request, model_admin):
+        if model_admin.model is Product:
+            qs = FederalSupplyClass.objects.filter(
+                nsns__products__isnull=False
+            ).distinct()
+        else:
+            qs = FederalSupplyClass.objects.filter(
+                nsns__isnull=False
+            ).distinct()
+        return [
+            (fsc.code, f"{fsc.code} - {fsc.name}")
+            for fsc in qs.order_by("code")
+        ]
+
+    def queryset(self, request, queryset):
+        val = self.value()
+        if val:
+            if queryset.model is Product:
+                return queryset.filter(nsn__fsc__code=val)
+            return queryset.filter(fsc__code=val)
+        return queryset
+
+
+# =============================================================================
 # National Stock Numbers
 # =============================================================================
 
 @admin.register(NationalStockNumber)
 class NationalStockNumberAdmin(admin.ModelAdmin):
     list_display = ("nsn", "nomenclature", "fsc", "unit_of_issue", "is_active", "product_count")
-    list_filter = ("is_active",)
+    list_filter = ("is_active", FSCFilter)
     search_fields = ("nsn", "nomenclature", "niin")
     readonly_fields = ("created_at", "updated_at")
     raw_id_fields = ("fsc",)
@@ -795,7 +828,7 @@ class ProductAdmin(admin.ModelAdmin):
         "display_name_col", "nsn_display", "filter_manufacturer_link", "manufacturer_display",
         "part_number", "price_display", "source", "status_toggle", "google_search_link", "view_on_site_link",
     )
-    list_filter = ("source", "is_active", PublishedFilter, ManufacturerVerifiedFilter)
+    list_filter = (FSCFilter, "source", "is_active", PublishedFilter, ManufacturerVerifiedFilter)
     search_fields = (
         "nsn__nsn", "nsn__nomenclature",
         "part_number", "name", "display_name",

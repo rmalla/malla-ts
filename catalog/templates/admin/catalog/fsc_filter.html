@@ -1,0 +1,17 @@
+{% load i18n %}
+<details data-filter-title="{{ title }}" open>
+  <summary>
+    {% blocktranslate with filter_title=title %} By {{ filter_title }} {% endblocktranslate %}
+  </summary>
+
+  <div style="max-height:300px; overflow-y:auto; margin-top:4px; border:1px solid #ddd; padding:4px; background:#fff;">
+    {% for choice in choices %}
+      <div style="padding:2px 0;{% if forloop.first %} border-bottom:1px solid #eee; margin-bottom:4px;{% endif %}">
+        <a href="{{ choice.query_string|iriencode }}"
+           style="{% if choice.selected %}font-weight:bold{% endif %}; font-size:11px; text-decoration:none; color:inherit;">
+          {{ choice.display }}
+        </a>
+      </div>
+    {% endfor %}
+  </div>
+</details>

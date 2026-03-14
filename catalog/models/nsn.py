@@ -20,7 +20,7 @@ class NationalStockNumber(models.Model):
     niin = models.CharField(max_length=9, blank=True)
     fsc = models.ForeignKey(
         "home.FederalSupplyClass",
-        on_delete=models.SET_NULL,
+        on_delete=models.CASCADE,
         null=True,
         blank=True,
         related_name="nsns",
