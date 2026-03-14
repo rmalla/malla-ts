@@ -1,14 +1,16 @@
 {% extends "base.html" %}
 {% load static humanize %}
 
-{% block title %}{{ manufacturer.display_name }} - Manufacturer - {{ product_count }} Product{{ product_count|pluralize }}{% endblock %}
+{% block title %}{{ manufacturer.display_name }} - Manufacturer - {{ product_count }} Product{{ product_count|pluralize }}{% if current_page > 1 %} - Page {{ current_page }}{% endif %}{% endblock %}
 
 {% block meta_description %}
-<meta name="description" content="{{ manufacturer.display_name }} — Browse {{ product_count }} product{{ product_count|pluralize }} available through Malla Technical Services.{% if manufacturer.city or manufacturer.state %} Located in {{ manufacturer.city }}{% if manufacturer.city and manufacturer.state %}, {% endif %}{{ manufacturer.state }}.{% endif %} Request a quote today." />
+<meta name="description" content="{{ manufacturer.display_name }} — Browse {{ product_count }} product{{ product_count|pluralize }} available through Malla Technical Services.{% if manufacturer.city or manufacturer.state %} Located in {{ manufacturer.city }}{% if manufacturer.city and manufacturer.state %}, {% endif %}{{ manufacturer.state }}.{% endif %}{% if current_page > 1 %} Page {{ current_page }}.{% endif %} Request a quote today." />
 {% endblock %}
 
 {% block canonical_url %}
-<link rel="canonical" href="https://www.malla-ts.com{% url 'manufacturer_detail' manufacturer.slug %}" />
+<link rel="canonical" href="{{ canonical_url }}" />
+{% if prev_url %}<link rel="prev" href="{{ prev_url }}" />{% endif %}
+{% if next_url %}<link rel="next" href="{{ next_url }}" />{% endif %}
 {% endblock %}
 
 {% block og_tags %}
@@ -47,6 +49,7 @@
     {% endif %}
 }
 </script>
+<script type="application/ld+json">{{ breadcrumb_ld|safe }}</script>
 {% endblock %}
 
 {% block content %}
@@ -54,7 +57,7 @@
 <section class="page-header page-header--with-image nsn-header" style="background-image: url('{% static 'images/hero-nsn.jpg' %}')">
     <div class="container">
         <nav class="breadcrumb">
-            <a href="{% url 'product_list' %}">Products</a>
+            <a href="{% url 'manufacturer_list' %}">Manufacturers</a>
             <span class="separator">/</span>
             <span class="current">{{ manufacturer.display_name }}</span>
         </nav>

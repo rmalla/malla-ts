@@ -1,3 +1,4 @@
+import json
 import re
 
 from django.core.paginator import Paginator
@@ -129,12 +130,38 @@ def manufacturer_detail(request, slug):
     paginator = Paginator(products, 20)
     products_page = paginator.get_page(page_number)
 
+    current_page = products_page.number
+    base_url = f"https://www.malla-ts.com/manufacturers/{org.slug}/"
+
+    breadcrumb_ld = json.dumps({
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+            {"@type": "ListItem", "position": 1, "name": "Home", "item": "https://www.malla-ts.com/"},
+            {"@type": "ListItem", "position": 2, "name": "Manufacturers", "item": "https://www.malla-ts.com/manufacturers/"},
+            {"@type": "ListItem", "position": 3, "name": org.display_name, "item": base_url},
+        ],
+    })
+
+    canonical_url = base_url if current_page == 1 else f"{base_url}?page={current_page}"
+    prev_url = None
+    next_url = None
+    if products_page.has_previous():
+        prev_url = base_url if current_page == 2 else f"{base_url}?page={current_page - 1}"
+    if products_page.has_next():
+        next_url = f"{base_url}?page={current_page + 1}"
+
     context = {
         "cage": org,  # backward compat
         "manufacturer": org,
         "products": products_page,
         "product_count": product_count,
         "format_nsn": format_nsn,
+        "breadcrumb_ld": breadcrumb_ld,
+        "canonical_url": canonical_url,
+        "prev_url": prev_url,
+        "next_url": next_url,
+        "current_page": current_page,
     }
     return render(request, "home/manufacturer_detail.html", context)
 
