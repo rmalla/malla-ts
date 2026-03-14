@@ -173,8 +173,9 @@ class Manufacturer(models.Model):
         if not self.cage_code:
             self.cage_code = None
 
-        # Auto-generate slug when missing or company_name changed
-        if not self.slug or self.company_name != self._original_company_name:
+        # Auto-generate slug only when missing (new records); never overwrite
+        # existing slugs — they determine SEO URLs.
+        if not self.slug:
             slug_name = format_manufacturer_name(self.company_name) or self.company_name
             base = slugify_manufacturer(slug_name, self.cage_code)
             if not base:

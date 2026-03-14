@@ -2,7 +2,7 @@ from .entities import Manufacturer, ManufacturerProfile
 from .filters import PipelineFilter
 from .jobs import ImportJob, ImportJobLog
 from .catalog import (
-    Product, ProductSpecification,
+    Product, ProductImage, ProductSpecification,
     DataSource,
     slugify_part_number,
 )
@@ -13,6 +13,7 @@ __all__ = [
     "ManufacturerProfile",
     "NationalStockNumber",
     "Product",
+    "ProductImage",
     "ProductSpecification",
     "DataSource",
     "PipelineFilter",

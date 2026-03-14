@@ -29,7 +29,7 @@
         {% if page.search_description %}
         <meta name="description" content="{{ page.search_description }}" />
         {% else %}
-        <meta name="description" content="Malla Technical Services provides B2B equipment procurement and engineering solutions for government, energy, municipal, and national park sectors." />
+        <meta name="description" content="Malla Technical Services provides equipment procurement and engineering solutions for government, energy, municipal, and national park sectors." />
         {% endif %}
         {% endblock %}
         <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -48,7 +48,7 @@
         {# Open Graph Tags #}
         {% block og_tags %}
         <meta property="og:title" content="{% if page.seo_title %}{{ page.seo_title }}{% else %}{{ page.title }}{% endif %} - Malla Technical Services" />
-        <meta property="og:description" content="{% if page.search_description %}{{ page.search_description }}{% else %}Malla Technical Services provides B2B equipment procurement and engineering solutions.{% endif %}" />
+        <meta property="og:description" content="{% if page.search_description %}{{ page.search_description }}{% else %}Malla Technical Services provides equipment procurement and engineering solutions.{% endif %}" />
         {% if page.full_url %}
         <meta property="og:url" content="{{ page.full_url }}" />
         {% endif %}
@@ -64,7 +64,7 @@
         {% block twitter_tags %}
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="{% if page.seo_title %}{{ page.seo_title }}{% else %}{{ page.title }}{% endif %} - Malla Technical Services" />
-        <meta name="twitter:description" content="{% if page.search_description %}{{ page.search_description }}{% else %}Malla Technical Services provides B2B equipment procurement and engineering solutions.{% endif %}" />
+        <meta name="twitter:description" content="{% if page.search_description %}{{ page.search_description }}{% else %}Malla Technical Services provides equipment procurement and engineering solutions.{% endif %}" />
         <meta name="twitter:image" content="https://www.malla-ts.com{% static 'images/og-image.png' %}" />
         {% endblock %}
 
@@ -98,7 +98,7 @@
             "name": "Malla Technical Services",
             "url": "https://www.malla-ts.com",
             "logo": "https://www.malla-ts.com{% static 'images/logo_malla.png' %}",
-            "description": "B2B equipment procurement and engineering solutions for government, energy, municipal, and national park sectors.",
+            "description": "Equipment procurement and engineering solutions for government, energy, municipal, and national park sectors.",
             "contactPoint": {
                 "@type": "ContactPoint",
                 "telephone": "+1-855-706-2552",

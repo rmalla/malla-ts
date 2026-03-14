@@ -180,9 +180,31 @@
             <!-- Main Content -->
             <div class="nsn-detail-main">
 
-                <!-- Product Image -->
+                <!-- Product Image Gallery -->
                 <div class="product-image-card">
-                    {% if manufacturer.profile.logo %}
+                    {% if product_images and manufacturer.profile.logo %}
+                    {# Gallery: product images + logo at the end #}
+                    <div class="product-gallery">
+                        <div class="product-gallery__main">
+                            {% for img in product_images %}
+                            <img src="{{ img.image.url }}" alt="{{ img.caption|default:product.get_display_name }} by {{ manufacturer.display_name }}{% if product.part_number %}, PN {{ product.part_number }}{% endif %}" class="product-hero-image product-gallery__slide{% if forloop.first %} product-gallery__slide--active{% endif %}" {% if forloop.first %}fetchpriority="high"{% else %}loading="lazy"{% endif %} />
+                            {% endfor %}
+                            <img src="{{ manufacturer.profile.logo.file.url }}" alt="{{ manufacturer.display_name }} logo" class="product-hero-image product-gallery__slide" loading="lazy" />
+                        </div>
+                        <div class="product-gallery__nav">
+                            <button type="button" class="product-gallery__arrow product-gallery__arrow--prev" aria-label="Previous image">&lsaquo;</button>
+                            <div class="product-gallery__dots">
+                                {% for img in product_images %}
+                                <button type="button" class="product-gallery__dot{% if forloop.first %} product-gallery__dot--active{% endif %}" aria-label="Image {{ forloop.counter }}" data-index="{{ forloop.counter0 }}"></button>
+                                {% endfor %}
+                                <button type="button" class="product-gallery__dot" aria-label="Manufacturer logo" data-index="{{ product_images|length }}"></button>
+                            </div>
+                            <button type="button" class="product-gallery__arrow product-gallery__arrow--next" aria-label="Next image">&rsaquo;</button>
+                        </div>
+                    </div>
+                    {% elif product_images %}
+                    <img src="{{ product_images.0.image.url }}" alt="{{ product.get_display_name }} by {{ manufacturer.display_name }}{% if product.part_number %}, PN {{ product.part_number }}{% endif %}" class="product-hero-image" fetchpriority="high" />
+                    {% elif manufacturer.profile.logo %}
                     <img src="{{ manufacturer.profile.logo.file.url }}" alt="{{ product.get_display_name }} by {{ manufacturer.display_name }}{% if product.part_number %}, PN {{ product.part_number }}{% endif %}" class="product-hero-image" fetchpriority="high" />
                     {% else %}
                     <img src="{% static 'images/logo_malla.png' %}" alt="{{ product.get_display_name }} by {{ manufacturer.display_name }}{% if product.part_number %}, PN {{ product.part_number }}{% endif %}" class="product-hero-image product-hero-image--fallback" fetchpriority="high" />
@@ -384,3 +406,32 @@
     <a href="#name" class="mobile-cta-quote">Request a Quote</a>
 </div>
 {% endblock mobile_cta %}
+
+{% block extra_js %}
+<script>
+(function() {
+    var gallery = document.querySelector('.product-gallery');
+    if (!gallery) return;
+
+    var slides = gallery.querySelectorAll('.product-gallery__slide');
+    var dots = gallery.querySelectorAll('.product-gallery__dot');
+    var prev = gallery.querySelector('.product-gallery__arrow--prev');
+    var next = gallery.querySelector('.product-gallery__arrow--next');
+    var current = 0;
+
+    function show(idx) {
+        slides[current].classList.remove('product-gallery__slide--active');
+        dots[current].classList.remove('product-gallery__dot--active');
+        current = (idx + slides.length) % slides.length;
+        slides[current].classList.add('product-gallery__slide--active');
+        dots[current].classList.add('product-gallery__dot--active');
+    }
+
+    prev.addEventListener('click', function() { show(current - 1); });
+    next.addEventListener('click', function() { show(current + 1); });
+    dots.forEach(function(dot) {
+        dot.addEventListener('click', function() { show(+this.dataset.index); });
+    });
+})();
+</script>
+{% endblock extra_js %}

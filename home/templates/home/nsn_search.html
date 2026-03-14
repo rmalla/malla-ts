@@ -8,12 +8,22 @@
 {% endblock %}
 
 {% block canonical_url %}
-<link rel="canonical" href="https://www.malla-ts.com/nsn/{% if pagination_qs %}?{{ pagination_qs }}{% endif %}" />
+{% if results.number > 1 and pagination_qs %}<link rel="canonical" href="https://www.malla-ts.com/nsn/?{{ pagination_qs }}&page={{ results.number }}" />
+{% elif results.number > 1 %}<link rel="canonical" href="https://www.malla-ts.com/nsn/?page={{ results.number }}" />
+{% elif pagination_qs %}<link rel="canonical" href="https://www.malla-ts.com/nsn/?{{ pagination_qs }}" />
+{% else %}<link rel="canonical" href="https://www.malla-ts.com/nsn/" />
+{% endif %}
 {% if results.has_previous %}
-<link rel="prev" href="https://www.malla-ts.com/nsn/?{% if pagination_qs %}{{ pagination_qs }}&{% endif %}page={{ results.previous_page_number }}" />
+{% if results.previous_page_number == 1 and pagination_qs %}<link rel="prev" href="https://www.malla-ts.com/nsn/?{{ pagination_qs }}" />
+{% elif results.previous_page_number == 1 %}<link rel="prev" href="https://www.malla-ts.com/nsn/" />
+{% elif pagination_qs %}<link rel="prev" href="https://www.malla-ts.com/nsn/?{{ pagination_qs }}&page={{ results.previous_page_number }}" />
+{% else %}<link rel="prev" href="https://www.malla-ts.com/nsn/?page={{ results.previous_page_number }}" />
+{% endif %}
 {% endif %}
 {% if results.has_next %}
-<link rel="next" href="https://www.malla-ts.com/nsn/?{% if pagination_qs %}{{ pagination_qs }}&{% endif %}page={{ results.next_page_number }}" />
+{% if pagination_qs %}<link rel="next" href="https://www.malla-ts.com/nsn/?{{ pagination_qs }}&page={{ results.next_page_number }}" />
+{% else %}<link rel="next" href="https://www.malla-ts.com/nsn/?page={{ results.next_page_number }}" />
+{% endif %}
 {% endif %}
 {% endblock %}
 
@@ -99,25 +109,33 @@
                     <a href="{% url 'nsn_search' %}{% if query %}?q={{ query }}{% endif %}" class="nsn-sidebar-clear">Clear filter</a>
                     {% endif %}
                     <nav class="nsn-fsg-list">
-                        {% for group in sidebar_groups %}
-                        <details class="fsg-group"{% if active_fsc and active_fsc.group == group.code %} open{% endif %}>
-                            <summary class="fsg-group-header">
+                        {% for cat in sidebar_groups %}
+                        <details class="nsn-category"{% if active_fsc and active_fsc.category == cat.code %} open{% endif %}>
+                            <summary class="nsn-category-header">
                                 <span class="fsg-group-chevron"></span>
-                                <span class="fsg-group-name">{{ group.name }}</span>
-                                <span class="fsg-group-count">{{ group.total|intcomma }}</span>
+                                <span class="nsn-category-name">{{ cat.name }}</span>
                             </summary>
-                            <ul class="fsc-link-list">
-                                {% for cls in group.classes %}
-                                <li>
-                                    <a href="{% url 'nsn_search' %}?fsc={{ cls.code }}{% if query %}&q={{ query }}{% endif %}"
-                                       class="fsc-link{% if fsc_code == cls.code %} fsc-link--active{% endif %}">
-                                        <span class="fsc-link-code">{{ cls.code }}</span>
-                                        <span class="fsc-link-name">{{ cls.name|default:"—" }}</span>
-                                        <span class="fsc-link-badge">{{ cls.count|intcomma }}</span>
-                                    </a>
-                                </li>
+                            <div class="nsn-category-body">
+                                {% for group in cat.groups %}
+                                <details class="fsg-group"{% if active_fsc and active_fsc.group == group.code %} open{% endif %}>
+                                    <summary class="fsg-group-header">
+                                        <span class="fsg-group-chevron"></span>
+                                        <span class="fsg-group-name">{{ group.name }}</span>
+                                    </summary>
+                                    <ul class="fsc-link-list">
+                                        {% for cls in group.classes %}
+                                        <li>
+                                            <a href="{% url 'nsn_search' %}?fsc={{ cls.code }}{% if query %}&q={{ query }}{% endif %}"
+                                               class="fsc-link{% if fsc_code == cls.code %} fsc-link--active{% endif %}">
+                                                <span class="fsc-link-code">{{ cls.code }}</span>
+                                                <span class="fsc-link-name">{{ cls.name|default:"—" }}</span>
+                                            </a>
+                                        </li>
+                                        {% endfor %}
+                                    </ul>
+                                </details>
                                 {% endfor %}
-                            </ul>
+                            </div>
                         </details>
                         {% endfor %}
                     </nav>
@@ -175,15 +193,14 @@
                 {% if results.has_other_pages %}
                 <nav class="pagination" aria-label="NSN results pagination">
                     {% if results.has_previous %}
-                    <a href="?{% if pagination_qs %}{{ pagination_qs }}&{% endif %}page=1" class="btn btn-sm" title="First page">&laquo;</a>
-                    <a href="?{% if pagination_qs %}{{ pagination_qs }}&{% endif %}page={{ results.previous_page_number }}" class="btn btn-sm" rel="prev">&lsaquo; Prev</a>
+                    <a href="{% if results.previous_page_number == 1 %}{% if pagination_qs %}?{{ pagination_qs }}{% else %}.{% endif %}{% else %}?{% if pagination_qs %}{{ pagination_qs }}&{% endif %}page={{ results.previous_page_number }}{% endif %}" class="btn btn-sm" rel="prev">&lsaquo; Prev</a>
                     {% endif %}
 
                     {% for page_num in results.paginator.page_range %}
                         {% if page_num == results.number %}
                         <span class="btn btn-sm btn-accent">{{ page_num }}</span>
                         {% elif page_num == 1 or page_num == results.paginator.num_pages or page_num >= results.number|add:"-2" and page_num <= results.number|add:"2" %}
-                        <a href="?{% if pagination_qs %}{{ pagination_qs }}&{% endif %}page={{ page_num }}" class="btn btn-sm">{{ page_num }}</a>
+                        <a href="{% if page_num == 1 %}{% if pagination_qs %}?{{ pagination_qs }}{% else %}.{% endif %}{% else %}?{% if pagination_qs %}{{ pagination_qs }}&{% endif %}page={{ page_num }}{% endif %}" class="btn btn-sm">{{ page_num }}</a>
                         {% elif page_num == 2 and results.number > 4 or page_num == results.paginator.num_pages|add:"-1" and results.number < results.paginator.num_pages|add:"-3" %}
                         <span class="page-ellipsis">&hellip;</span>
                         {% endif %}
@@ -191,7 +208,6 @@
 
                     {% if results.has_next %}
                     <a href="?{% if pagination_qs %}{{ pagination_qs }}&{% endif %}page={{ results.next_page_number }}" class="btn btn-sm" rel="next">Next &rsaquo;</a>
-                    <a href="?{% if pagination_qs %}{{ pagination_qs }}&{% endif %}page={{ results.paginator.num_pages }}" class="btn btn-sm" title="Last page">&raquo;</a>
                     {% endif %}
                 </nav>
                 {% endif %}

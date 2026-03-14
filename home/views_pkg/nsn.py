@@ -13,6 +13,8 @@ from home.models import FederalSupplyClass
 
 from .products import format_nsn, normalize_nsn
 
+NSN_SIDEBAR_CACHE_KEY = "nsn_sidebar_data_v3"
+
 
 def _enabled_manufacturer_ids():
     """Return IDs of manufacturers with an enabled profile. Tiny query (~4 rows)."""
@@ -29,8 +31,8 @@ def _published_product_filter():
 
 
 def _get_sidebar_data():
-    """Build FSC sidebar grouped by FSG, with NSN counts. Cached 6 hours."""
-    sidebar = django_cache.get("nsn_sidebar_data_v2")
+    """Build FSC sidebar grouped by category → FSG → FSC, with NSN counts. Cached 6 hours."""
+    sidebar = django_cache.get(NSN_SIDEBAR_CACHE_KEY)
     if sidebar is not None:
         return sidebar
 
@@ -47,26 +49,44 @@ def _get_sidebar_data():
         .order_by("code")
     )
 
-    # Group by FSG (first 2 digits)
-    groups = {}
+    # Group by category → FSG → FSC
+    categories = {}
     for fsc in fsc_qs:
+        cat_code = fsc.category or "miscellaneous"
+        cat_name = fsc.category_name or "Miscellaneous"
         fsg = fsc.group or fsc.code[:2]
-        if fsg not in groups:
-            groups[fsg] = {
+
+        if cat_code not in categories:
+            categories[cat_code] = {
+                "code": cat_code,
+                "name": cat_name,
+                "groups": {},
+                "total": 0,
+            }
+
+        cat = categories[cat_code]
+        if fsg not in cat["groups"]:
+            cat["groups"][fsg] = {
                 "code": fsg,
                 "name": fsc.group_name or f"Group {fsg}",
                 "classes": [],
                 "total": 0,
             }
-        groups[fsg]["classes"].append({
+
+        cat["groups"][fsg]["classes"].append({
             "code": fsc.code,
             "name": fsc.name,
             "count": fsc.nsn_count,
         })
-        groups[fsg]["total"] += fsc.nsn_count
+        cat["groups"][fsg]["total"] += fsc.nsn_count
+        cat["total"] += fsc.nsn_count
 
-    sidebar = sorted(groups.values(), key=lambda g: g["code"])
-    django_cache.set("nsn_sidebar_data_v2", sidebar, 60 * 60 * 6)
+    # Convert groups dicts to sorted lists
+    for cat in categories.values():
+        cat["groups"] = sorted(cat["groups"].values(), key=lambda g: g["code"])
+
+    sidebar = sorted(categories.values(), key=lambda c: -c["total"])
+    django_cache.set(NSN_SIDEBAR_CACHE_KEY, sidebar, 60 * 60 * 6)
     return sidebar
 
 

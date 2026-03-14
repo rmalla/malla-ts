@@ -1,7 +1,11 @@
+import logging
 import re
 
+from django.core.files.base import ContentFile
 from django.db import models
 from django.db.models import Q
+
+logger = logging.getLogger(__name__)
 
 
 def slugify_part_number(part_number):
@@ -165,3 +169,39 @@ class ProductSpecification(models.Model):
 
     def __str__(self):
         return f"{self.label}: {self.value}"
+
+
+# ── ProductImage ──────────────────────────────────────────────────────────
+
+class ProductImage(models.Model):
+    """Images attached to a product."""
+
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="images")
+    image = models.ImageField(upload_to="product_images/")
+    caption = models.CharField(max_length=255, blank=True)
+    sort_order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Product Image"
+        verbose_name_plural = "Product Images"
+        ordering = ["sort_order", "created_at"]
+
+    def save(self, *args, **kwargs):
+        if self.image and hasattr(self.image.file, 'read'):
+            from catalog.services.image_processor import process_product_image
+
+            raw = self.image.file.read()
+            self.image.file.seek(0)
+
+            try:
+                webp_bytes, meta = process_product_image(raw)
+                filename = f"product-{self.product_id}-{self.sort_order}.webp"
+                self.image.save(filename, ContentFile(webp_bytes), save=False)
+            except Exception:
+                logger.exception("Failed to process product image, saving raw")
+
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.caption or f"Image {self.pk}"

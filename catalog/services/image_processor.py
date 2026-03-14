@@ -19,6 +19,9 @@ logger = logging.getLogger(__name__)
 LOGO_MAX_SIZE = 400
 LOGO_QUALITY = 85
 LOGO_PADDING_PERCENT = 10
+PRODUCT_IMAGE_MAX_SIZE = 500
+PRODUCT_IMAGE_QUALITY = 85
+PRODUCT_IMAGE_PADDING_PERCENT = 9
 # Near-background threshold — pixels within this distance of the detected
 # background colour are considered background when auto-cropping.
 BG_TOLERANCE = 30
@@ -72,6 +75,60 @@ def process_logo(image_data: bytes) -> tuple[bytes, dict]:
     logger.info(
         f"Processed logo: {w}x{h} -> crop -> {img.width}x{img.height} "
         f"-> {LOGO_MAX_SIZE}x{LOGO_MAX_SIZE} ({meta['file_size']:,} bytes)"
+    )
+    return webp_bytes, meta
+
+
+def process_product_image(image_data: bytes) -> tuple[bytes, dict]:
+    """
+    Process a raw product image into a standardized WebP.
+
+    Strips metadata, converts to RGB, resizes to fit within 1200×1200
+    preserving aspect ratio, and converts to WebP.
+
+    Returns (webp_bytes, metadata_dict).
+    """
+    img = Image.open(io.BytesIO(image_data))
+    original_w, original_h = img.size
+
+    # Strip metadata
+    img = _strip_metadata(img)
+
+    # Convert to RGB (no transparency for product photos)
+    if img.mode != "RGB":
+        if img.mode == "RGBA":
+            background = Image.new("RGB", img.size, (255, 255, 255))
+            background.paste(img, mask=img.split()[3])
+            img = background
+        else:
+            img = img.convert("RGB")
+
+    # Resize to fit within inner area (with padding margin)
+    inner = int(PRODUCT_IMAGE_MAX_SIZE * (1 - 2 * PRODUCT_IMAGE_PADDING_PERCENT / 100))
+    w, h = img.size
+    ratio = min(inner / w, inner / h)
+    img = img.resize((int(w * ratio), int(h * ratio)), Image.Resampling.LANCZOS)
+
+    # Pad to square canvas with white background
+    canvas = Image.new("RGB", (PRODUCT_IMAGE_MAX_SIZE, PRODUCT_IMAGE_MAX_SIZE), (255, 255, 255))
+    x = (PRODUCT_IMAGE_MAX_SIZE - img.width) // 2
+    y = (PRODUCT_IMAGE_MAX_SIZE - img.height) // 2
+    canvas.paste(img, (x, y))
+
+    # Convert to WebP
+    buf = io.BytesIO()
+    canvas.save(buf, format="WEBP", quality=PRODUCT_IMAGE_QUALITY, method=6)
+    webp_bytes = buf.getvalue()
+
+    meta = {
+        "width": PRODUCT_IMAGE_MAX_SIZE,
+        "height": PRODUCT_IMAGE_MAX_SIZE,
+        "format": "webp",
+        "file_size": len(webp_bytes),
+    }
+    logger.info(
+        f"Processed product image: {original_w}x{original_h} -> "
+        f"{img.width}x{img.height} ({meta['file_size']:,} bytes)"
     )
     return webp_bytes, meta
 

@@ -3552,7 +3552,7 @@ body.menu-open {
    ---------------------------------------- */
 .nsn-browse-layout {
     display: grid;
-    grid-template-columns: 280px 1fr;
+    grid-template-columns: 340px 1fr;
     gap: var(--space-6);
     align-items: start;
 }
@@ -3611,31 +3611,78 @@ body.menu-open {
     flex-direction: column;
 }
 
-/* FSG Group accordion */
-.fsg-group {
-    border-top: 1px solid var(--gray-100);
+/* Super-group (category) accordion */
+.nsn-category {
+    border-top: 1px solid var(--gray-200);
 }
 
-.fsg-group:last-child {
-    border-bottom: 1px solid var(--gray-100);
+.nsn-category:first-child {
+    border-top: none;
+}
+
+.nsn-category-header {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-1);
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: var(--gray-900);
+    list-style: none;
+    user-select: none;
+    transition: color 0.15s, background 0.15s;
+    border-radius: var(--radius-md);
+}
+
+.nsn-category-header:hover {
+    color: var(--primary-600);
+    background: var(--gray-50);
+}
+
+.nsn-category-header::-webkit-details-marker {
+    display: none;
+}
+
+.nsn-category-name {
+    flex: 1;
+    min-width: 0;
+    line-height: 1.35;
+}
+
+.nsn-category[open] > .nsn-category-header .fsg-group-chevron {
+    transform: rotate(90deg);
+}
+
+.nsn-category-body {
+    padding: 0 0 var(--space-2) var(--space-4);
+    border-left: 2px solid var(--gray-100);
+    margin-left: 7px;
+}
+
+/* FSG Group accordion */
+.fsg-group + .fsg-group {
+    margin-top: 2px;
 }
 
 .fsg-group-header {
     display: flex;
-    align-items: center;
+    align-items: baseline;
     gap: var(--space-2);
-    padding: var(--space-3) var(--space-1);
+    padding: var(--space-2) var(--space-1);
     cursor: pointer;
     font-size: 0.8125rem;
     font-weight: 600;
-    color: var(--gray-800);
+    color: var(--gray-700);
     list-style: none;
     user-select: none;
-    transition: color 0.15s;
+    transition: color 0.15s, background 0.15s;
+    border-radius: var(--radius-md);
 }
 
 .fsg-group-header:hover {
     color: var(--primary-600);
+    background: var(--gray-50);
 }
 
 .fsg-group-header::-webkit-details-marker {
@@ -3646,24 +3693,27 @@ body.menu-open {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
     flex-shrink: 0;
     transition: transform 0.2s ease;
+    position: relative;
+    top: 1px;
 }
 
 .fsg-group-chevron::before {
     content: "";
     display: block;
-    width: 6px;
-    height: 6px;
-    border-right: 2px solid var(--gray-400);
-    border-bottom: 2px solid var(--gray-400);
+    width: 5px;
+    height: 5px;
+    border-right: 1.5px solid var(--gray-400);
+    border-bottom: 1.5px solid var(--gray-400);
     transform: rotate(-45deg);
     transition: border-color 0.15s;
 }
 
-.fsg-group-header:hover .fsg-group-chevron::before {
+.fsg-group-header:hover .fsg-group-chevron::before,
+.nsn-category-header:hover .fsg-group-chevron::before {
     border-color: var(--primary-500);
 }
 
@@ -3674,39 +3724,30 @@ body.menu-open {
 .fsg-group-name {
     flex: 1;
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.fsg-group-count {
-    font-size: 0.6875rem;
-    color: var(--gray-400);
-    font-weight: 400;
-    background: var(--gray-100);
-    padding: 1px 6px;
-    border-radius: 8px;
-    flex-shrink: 0;
+    line-height: 1.35;
 }
 
 /* FSC class links */
 .fsc-link-list {
     list-style: none;
-    padding: 0 0 var(--space-2) 0;
+    padding: var(--space-1) 0 var(--space-2) var(--space-4);
     margin: 0;
+    border-left: 2px solid var(--gray-100);
+    margin-left: 7px;
 }
 
 .fsc-link {
     display: flex;
-    align-items: center;
+    align-items: baseline;
     gap: var(--space-2);
     padding: var(--space-2) var(--space-3);
     margin: 1px 0;
     border-radius: var(--radius-md);
     font-size: 0.8125rem;
-    color: var(--gray-700);
+    color: var(--gray-600);
     text-decoration: none;
     transition: background 0.15s, color 0.15s;
+    line-height: 1.35;
 }
 
 .fsc-link:hover {
@@ -3736,10 +3777,8 @@ body.menu-open {
 .fsc-link-name {
     flex: 1;
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
     font-weight: 400;
+    line-height: 1.35;
 }
 
 .fsc-link-badge {

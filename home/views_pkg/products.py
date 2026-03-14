@@ -68,7 +68,8 @@ def product_detail(request, manufacturer_slug, part_slug):
 
     formatted_nsn = product.nsn.nsn if product.nsn else ""
 
-    # Product specifications (key-value pairs)
+    # Product images and specifications
+    product_images = list(product.images.all())
     specs = list(product.specs.all().order_by("group", "sort_order", "label"))
 
     # Related products: same FSC first, then same manufacturer as fallback
@@ -99,6 +100,7 @@ def product_detail(request, manufacturer_slug, part_slug):
         "manufacturer": product.manufacturer,
         "nsn_obj": product.nsn,
         "formatted_nsn": formatted_nsn,
+        "product_images": product_images,
         "specifications": specs,
         "related_products": related,
         "format_nsn": format_nsn,

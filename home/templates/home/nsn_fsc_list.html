@@ -8,7 +8,17 @@
 {% endblock %}
 
 {% block canonical_url %}
-<link rel="canonical" href="https://www.malla-ts.com/nsn/fsc/{{ fsc.code }}/" />
+{% if nsns.number > 1 %}<link rel="canonical" href="https://www.malla-ts.com/nsn/fsc/{{ fsc.code }}/?page={{ nsns.number }}" />
+{% else %}<link rel="canonical" href="https://www.malla-ts.com/nsn/fsc/{{ fsc.code }}/" />
+{% endif %}
+{% if nsns.has_previous %}
+{% if nsns.previous_page_number == 1 %}<link rel="prev" href="https://www.malla-ts.com/nsn/fsc/{{ fsc.code }}/" />
+{% else %}<link rel="prev" href="https://www.malla-ts.com/nsn/fsc/{{ fsc.code }}/?page={{ nsns.previous_page_number }}" />
+{% endif %}
+{% endif %}
+{% if nsns.has_next %}
+<link rel="next" href="https://www.malla-ts.com/nsn/fsc/{{ fsc.code }}/?page={{ nsns.next_page_number }}" />
+{% endif %}
 {% endblock %}
 
 {% block og_tags %}
@@ -82,21 +92,19 @@
             {% if nsns.has_other_pages %}
             <nav class="pagination">
                 {% if nsns.has_previous %}
-                <a href="?page=1" class="btn btn-sm">&laquo;</a>
-                <a href="?page={{ nsns.previous_page_number }}" class="btn btn-sm">&lsaquo;</a>
+                <a href="{% if nsns.previous_page_number == 1 %}.{% else %}?page={{ nsns.previous_page_number }}{% endif %}" class="btn btn-sm">&lsaquo; Prev</a>
                 {% endif %}
                 {% for page_num in nsns.paginator.page_range %}
                     {% if page_num == nsns.number %}
                     <span class="btn btn-sm btn-accent">{{ page_num }}</span>
                     {% elif page_num == 1 or page_num == nsns.paginator.num_pages or page_num >= nsns.number|add:"-2" and page_num <= nsns.number|add:"2" %}
-                    <a href="?page={{ page_num }}" class="btn btn-sm">{{ page_num }}</a>
+                    <a href="{% if page_num == 1 %}.{% else %}?page={{ page_num }}{% endif %}" class="btn btn-sm">{{ page_num }}</a>
                     {% elif page_num == 2 and nsns.number > 4 or page_num == nsns.paginator.num_pages|add:"-1" and nsns.number < nsns.paginator.num_pages|add:"-3" %}
                     <span class="page-ellipsis">&hellip;</span>
                     {% endif %}
                 {% endfor %}
                 {% if nsns.has_next %}
-                <a href="?page={{ nsns.next_page_number }}" class="btn btn-sm">&rsaquo;</a>
-                <a href="?page={{ nsns.paginator.num_pages }}" class="btn btn-sm">&raquo;</a>
+                <a href="?page={{ nsns.next_page_number }}" class="btn btn-sm">Next &rsaquo;</a>
                 {% endif %}
             </nav>
             {% endif %}

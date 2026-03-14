@@ -343,6 +343,8 @@ class FederalSupplyClass(models.Model):
     name = models.CharField(max_length=255)
     group = models.CharField(max_length=2, db_index=True)  # First 2 digits (FSG)
     group_name = models.CharField(max_length=255, blank=True)
+    category = models.CharField(max_length=50, blank=True, db_index=True)
+    category_name = models.CharField(max_length=255, blank=True)
 
     class Meta:
         verbose_name = "Federal Supply Class"

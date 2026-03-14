@@ -128,11 +128,11 @@
             <nav class="pagination-nav">
                 <ul class="pagination">
                     {% if manufacturers.has_previous %}
-                    <li><a href="?{% if query %}q={{ query }}&{% endif %}page={{ manufacturers.previous_page_number }}">&laquo; Previous</a></li>
+                    <li><a href="{% if manufacturers.previous_page_number == 1 %}{% if query %}?q={{ query }}{% else %}.{% endif %}{% else %}?{% if query %}q={{ query }}&{% endif %}page={{ manufacturers.previous_page_number }}{% endif %}">&lsaquo; Prev</a></li>
                     {% endif %}
                     <li class="page-info">Page {{ manufacturers.number }} of {{ manufacturers.paginator.num_pages }}</li>
                     {% if manufacturers.has_next %}
-                    <li><a href="?{% if query %}q={{ query }}&{% endif %}page={{ manufacturers.next_page_number }}">Next &raquo;</a></li>
+                    <li><a href="?{% if query %}q={{ query }}&{% endif %}page={{ manufacturers.next_page_number }}">Next &rsaquo;</a></li>
                     {% endif %}
                 </ul>
             </nav>

@@ -111,7 +111,7 @@
                                 <td>
                                     <span style="display: inline-flex; align-items: center; gap: 0.5rem;">
                                         {% if product.manufacturer.profile.logo %}
-                                        <img src="{{ product.manufacturer.profile.logo.file.url }}" alt="" width="24" height="24" style="border-radius: 3px; vertical-align: middle;" />
+                                        <img src="{{ product.manufacturer.profile.logo.file.url }}" alt="{{ product.manufacturer.display_name }} logo" width="24" height="24" style="border-radius: 3px; vertical-align: middle;" />
                                         {% endif %}
                                         <a href="{% url 'manufacturer_detail' product.manufacturer.slug %}">{{ product.manufacturer.display_name }}</a>
                                     </span>

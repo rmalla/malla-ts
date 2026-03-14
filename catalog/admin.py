@@ -1,4 +1,5 @@
 from django.contrib import admin, messages
+from django.core.cache import cache as django_cache
 from django.db.models import Count, Q
 from django.http import JsonResponse
 from django.shortcuts import redirect
@@ -16,6 +17,7 @@ from .models import (
     ImportJob,
     ImportJobLog,
     Product,
+    ProductImage,
     ProductSpecification,
 )
 
@@ -50,6 +52,22 @@ class ImportJobLogInline(admin.TabularInline):
 
     def has_change_permission(self, request, obj=None):
         return False
+
+
+class ProductImageInline(admin.TabularInline):
+    model = ProductImage
+    extra = 1
+    fields = ("image", "caption", "sort_order", "image_preview")
+    readonly_fields = ("image_preview",)
+
+    def image_preview(self, obj):
+        if obj.image:
+            return format_html(
+                '<img src="{}" style="max-height:80px; max-width:120px; border-radius:4px;" />',
+                obj.image.url,
+            )
+        return ""
+    image_preview.short_description = "Preview"
 
 
 class ProductSpecificationInline(admin.TabularInline):
@@ -248,7 +266,8 @@ class ProductCountFilter(admin.SimpleListFilter):
             ("2-5", "2–5"),
             ("6-20", "6–20"),
             ("20-100", "20–100"),
-            ("100+", "> 100"),
+            ("100-500", "100–500"),
+            ("500+", "> 500"),
         ]
 
     def queryset(self, request, queryset):
@@ -261,12 +280,13 @@ class ProductCountFilter(admin.SimpleListFilter):
             "2-5": (2, 5),
             "6-20": (6, 20),
             "20-100": (20, 100),
+            "100-500": (100, 500),
         }
         if val in ranges:
             lo, hi = ranges[val]
             return queryset.filter(product_count__gte=lo, product_count__lte=hi)
-        if val == "100+":
-            return queryset.filter(product_count__gt=100)
+        if val == "500+":
+            return queryset.filter(product_count__gt=500)
         return queryset
 
 
@@ -348,7 +368,7 @@ class ManufacturerAdmin(admin.ModelAdmin):
         css = {"all": ("catalog/css/toggle.css",)}
         js = ("catalog/js/toggle.js",)
 
-    readonly_fields = ("profile_display_name", "manufacturer_toggle_detail", "status_toggle_detail", "view_on_site_detail", "logo_preview_detail", "product_count_link", "fetch_website_button")
+    readonly_fields = ("profile_display_name", "manufacturer_toggle_detail", "status_toggle_detail", "view_on_site_detail", "logo_preview_detail", "product_count_link", "fetch_website_button", "slug")
 
     fieldsets = (
         (None, {
@@ -448,6 +468,18 @@ class ManufacturerAdmin(admin.ModelAdmin):
             val=val, pk=obj.pk,
         )
     status_toggle_detail.short_description = "Status"
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        django_cache.delete("nsn_sidebar_data_v2")
+
+    def save_formset(self, request, form, formset, change):
+        super().save_formset(request, form, formset, change)
+        django_cache.delete("nsn_sidebar_data_v2")
+
+    def delete_model(self, request, obj):
+        super().delete_model(request, obj)
+        django_cache.delete("nsn_sidebar_data_v2")
 
     def profile_display_name(self, obj):
         try:
@@ -570,7 +602,7 @@ class ManufacturerAdmin(admin.ModelAdmin):
             wagtail_image.file = ContentFile(webp_bytes, name=filename)
             wagtail_image.save()
 
-            profile, _ = ManufacturerProfile.objects.get_or_create(manufacturer=mfr)
+            profile, _ = ManufacturerProfile.objects.get_or_create(organization=mfr)
             profile.logo = wagtail_image
             profile.save(update_fields=["logo"])
 
@@ -678,6 +710,7 @@ class ManufacturerAdmin(admin.ModelAdmin):
                     is_active=True,
                 ).update(is_active=False)
 
+        django_cache.delete("nsn_sidebar_data_v2")
         return JsonResponse({"ok": True})
 
     def set_field_view(self, request, pk):
@@ -887,19 +920,22 @@ class ManufacturerAdmin(admin.ModelAdmin):
                 'return false;" '
                 'class="button" style="padding:6px 14px;">{}</a>'
                 '&nbsp;&nbsp;'
-                '<form method="POST" action="{}" enctype="multipart/form-data" '
-                'style="display:inline-block; vertical-align:middle; margin-top:4px;">'
-                '<input type="hidden" name="csrfmiddlewaretoken" '
-                'value="" id="upload-logo-csrf">'
-                '<script>document.addEventListener("DOMContentLoaded",function(){{'
-                'var t=document.querySelector("[name=csrfmiddlewaretoken]");'
-                'if(t)document.getElementById("upload-logo-csrf").value=t.value;'
-                '}});</script>'
-                '<input type="file" name="logo" accept="image/*" '
-                'style="display:inline-block; max-width:200px;">'
-                '&nbsp;<button type="submit" class="button" '
-                'style="padding:6px 14px;">Upload Logo</button>'
-                '</form>',
+                '<input type="file" id="upload-logo-file" accept="image/*" '
+                'style="display:inline-block; max-width:200px; vertical-align:middle;">'
+                '&nbsp;<a href="#" onclick="'
+                "var fi=document.getElementById('upload-logo-file');"
+                "if(!fi.files.length){{alert('Please select a file first.');return false;}}"
+                "var f=document.createElement('form');"
+                "f.method='POST';f.action='{}';"
+                "f.enctype='multipart/form-data';"
+                "var c=document.createElement('input');"
+                "c.type='hidden';c.name='csrfmiddlewaretoken';"
+                "c.value=document.querySelector('[name=csrfmiddlewaretoken]').value;"
+                "f.appendChild(c);"
+                "fi.name='logo';f.appendChild(fi);"
+                "document.body.appendChild(f);f.submit();"
+                'return false;" '
+                'class="button" style="padding:6px 14px; vertical-align:middle;">Upload Logo</a>',
                 img_html, extract_url, btn_label, upload_url,
             )
 
@@ -935,9 +971,9 @@ class ManufacturerAdmin(admin.ModelAdmin):
 
 @admin.register(FederalSupplyClass)
 class FederalSupplyClassAdmin(admin.ModelAdmin):
-    list_display = ('code', 'name', 'group', 'group_name', 'nsn_count', 'product_count')
-    list_filter = ('group',)
-    search_fields = ('code', 'name', 'group_name')
+    list_display = ('code', 'name', 'group', 'group_name', 'category', 'category_name', 'nsn_count', 'product_count')
+    list_filter = ('category', 'group')
+    search_fields = ('code', 'name', 'group_name', 'category', 'category_name')
     ordering = ('code',)
 
     def get_queryset(self, request):
@@ -998,6 +1034,14 @@ class NationalStockNumberAdmin(admin.ModelAdmin):
         return format_html('<a href="{}">F</a>', url)
     fsc_filter_link.short_description = "F"
 
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        django_cache.delete("nsn_sidebar_data_v2")
+
+    def delete_model(self, request, obj):
+        super().delete_model(request, obj)
+        django_cache.delete("nsn_sidebar_data_v2")
+
 
 # =============================================================================
 # Products
@@ -1049,7 +1093,7 @@ class ProductAdmin(admin.ModelAdmin):
         "display_name_col", "nsn_display", "filter_manufacturer_link", "manufacturer_display",
         "part_number", "price_display", "source", "status_toggle", "google_search_link", "view_on_site_link",
     )
-    list_filter = (FSCFilter, "source", "is_active", PublishedFilter, ManufacturerVerifiedFilter)
+    list_filter = ("source", "is_active", PublishedFilter, ManufacturerVerifiedFilter)
     search_fields = (
         "nsn__nsn", "nsn__nomenclature",
         "part_number", "name", "display_name",
@@ -1071,7 +1115,7 @@ class ProductAdmin(admin.ModelAdmin):
     ordering = ("-created_at",)
     list_per_page = 50
     list_select_related = ("manufacturer", "manufacturer__profile", "nsn")
-    inlines = [ProductSpecificationInline]
+    inlines = [ProductImageInline, ProductSpecificationInline]
 
     class Media:
         css = {"all": ("catalog/css/toggle.css",)}
@@ -1094,6 +1138,14 @@ class ProductAdmin(admin.ModelAdmin):
             "fields": ("manufacturer",),
         }),
     )
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        django_cache.delete("nsn_sidebar_data_v2")
+
+    def delete_model(self, request, obj):
+        super().delete_model(request, obj)
+        django_cache.delete("nsn_sidebar_data_v2")
 
     def get_urls(self):
         custom_urls = [
@@ -1139,6 +1191,7 @@ class ProductAdmin(admin.ModelAdmin):
             return JsonResponse({"ok": False, "error": "Not found"}, status=404)
         setattr(product, field, value)
         product.save(update_fields=[field])
+        django_cache.delete("nsn_sidebar_data_v2")
         return JsonResponse({"ok": True})
 
     def display_name_col(self, obj):
