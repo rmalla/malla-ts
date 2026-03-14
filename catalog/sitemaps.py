@@ -1,7 +1,7 @@
 from django.contrib.sitemaps import Sitemap
 from django.urls import reverse
 
-from .models import Manufacturer, Product
+from .models import Manufacturer, NationalStockNumber, Product
 
 SITE_DOMAIN = "www.malla-ts.com"
 
@@ -52,6 +52,24 @@ class ManufacturerSitemap(CatalogSitemap):
 
     def location(self, obj):
         return reverse("manufacturer_detail", kwargs={"slug": obj.slug})
+
+
+class NSNSitemap(CatalogSitemap):
+    changefreq = "monthly"
+    priority = 0.6
+    limit = 5000
+
+    def items(self):
+        return NationalStockNumber.objects.filter(is_active__gte=0).order_by("pk")
+
+    def location(self, obj):
+        # Format raw NSN to dashed format for URL
+        raw = obj.nsn
+        if len(raw) == 13:
+            formatted = f"{raw[:4]}-{raw[4:6]}-{raw[6:9]}-{raw[9:13]}"
+        else:
+            formatted = raw
+        return reverse("nsn_detail", kwargs={"nsn": formatted})
 
 
 class StaticCatalogSitemap(CatalogSitemap):

@@ -6,7 +6,6 @@ from django.db import models
 from django.db.models import Q
 from django.http import Http404
 from django.shortcuts import redirect, render, get_object_or_404
-from django.views.decorators.cache import cache_page
 from django_ratelimit.decorators import ratelimit
 
 from catalog.models import Manufacturer, Product, ManufacturerProfile
@@ -25,7 +24,6 @@ def normalize_nsn(dashed):
     return re.sub(r"[^0-9]", "", dashed)
 
 
-@cache_page(60 * 60)
 @ratelimit(key="ip", rate="60/m", method="GET", block=True)
 def product_list(request):
     """Browse products."""
@@ -60,7 +58,6 @@ def product_list(request):
     return render(request, "home/product_list.html", context)
 
 
-@cache_page(60 * 60 * 24)
 def product_detail(request, manufacturer_slug, part_slug):
     """Detail view for a single product."""
     product = get_object_or_404(
@@ -109,7 +106,6 @@ def product_detail(request, manufacturer_slug, part_slug):
     return render(request, "home/product_detail.html", context)
 
 
-@cache_page(60 * 60 * 24)
 def manufacturer_detail(request, slug):
     """Manufacturer page with company info and product listings."""
     org = get_object_or_404(
@@ -166,7 +162,6 @@ def manufacturer_detail(request, slug):
     return render(request, "home/manufacturer_detail.html", context)
 
 
-@cache_page(60 * 60)
 @ratelimit(key="ip", rate="60/m", method="GET", block=True)
 def manufacturer_list(request):
     """Browse manufacturers."""

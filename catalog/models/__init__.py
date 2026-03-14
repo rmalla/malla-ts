@@ -6,7 +6,7 @@ from .catalog import (
     DataSource,
     slugify_part_number,
 )
-from .nsn import NationalStockNumber
+from .nsn import FederalSupplyClass, NationalStockNumber
 
 __all__ = [
     "Manufacturer",

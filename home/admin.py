@@ -5,7 +5,6 @@ from django.utils.html import format_html
 from .models import (
     HomePage, StandardPage, EquipmentCategoryPage, EquipmentPage,
     IndustryPage, ContactPage, ContactSubmission,
-    FederalSupplyClass,
 )
 
 
@@ -74,34 +73,7 @@ class ContactSubmissionAdmin(admin.ModelAdmin):
         return False
 
 
-# =============================================================================
-# NSN Models
-# =============================================================================
-
-@admin.register(FederalSupplyClass)
-class FederalSupplyClassAdmin(admin.ModelAdmin):
-    list_display = ('code', 'name', 'group', 'group_name', 'nsn_count', 'product_count')
-    list_filter = ('group',)
-    search_fields = ('code', 'name', 'group_name')
-    ordering = ('code',)
-
-    def get_queryset(self, request):
-        from django.db.models import Count
-        return super().get_queryset(request).annotate(
-            _nsn_count=Count("nsns", distinct=True),
-            _product_count=Count("nsns__products", distinct=True),
-        )
-
-    def nsn_count(self, obj):
-        url = reverse("admin:catalog_nationalstocknumber_changelist") + f"?fsc={obj.code}"
-        return format_html('<a href="{}">{}</a>', url, obj._nsn_count)
-    nsn_count.short_description = 'NSNs'
-    nsn_count.admin_order_field = '_nsn_count'
-
-    def product_count(self, obj):
-        url = reverse("admin:catalog_product_changelist") + f"?fsc={obj.code}"
-        return format_html('<a href="{}">{}</a>', url, obj._product_count)
-    product_count.short_description = 'Products'
-    product_count.admin_order_field = '_product_count'
+# FederalSupplyClass admin is registered in catalog/admin.py (as a proxy)
+# so it appears under "Product Catalog" in the sidebar.
 
 

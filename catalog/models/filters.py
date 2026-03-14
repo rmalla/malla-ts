@@ -128,5 +128,6 @@ class PipelineFilter(models.Model):
         if self.field_type == FilterFieldType.NSN:
             return value.replace("-", "") == self.field_value.replace("-", "")
         if self.field_type == FilterFieldType.MANUFACTURER_NAME:
-            return self.field_value.upper() in value.upper()
+            pattern = r"\b" + re.escape(self.field_value) + r"\b"
+            return bool(re.search(pattern, value, re.IGNORECASE))
         return value.upper() == self.field_value.upper()

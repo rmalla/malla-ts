@@ -35,7 +35,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1" />
 
         {# Additional SEO Meta Tags #}
-        <meta name="robots" content="index, follow" />
+        {% block robots_meta %}<meta name="robots" content="index, follow" />{% endblock %}
         <meta name="author" content="Malla Technical Services" />
 
         {# Canonical URL #}
@@ -81,7 +81,7 @@
         <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
 
         {# Global stylesheets #}
-        <link rel="stylesheet" type="text/css" href="{% static 'css/mallats.css' %}?v=6.0">
+        <link rel="stylesheet" type="text/css" href="{% static 'css/mallats.css' %}?v=7.0">
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -262,8 +262,11 @@
             </div>
         </footer>
 
+        {# Sticky Mobile CTA Bar #}
+        {% block mobile_cta %}{% endblock %}
+
         {# Global javascript #}
-        <script type="text/javascript" src="{% static 'js/mallats.js' %}?v=1.0"></script>
+        <script type="text/javascript" src="{% static 'js/mallats.js' %}?v=2.0"></script>
 
         {% block extra_js %}
         {# Override this in templates to add extra javascript #}

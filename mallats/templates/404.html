@@ -5,6 +5,8 @@
 
 {% block body_class %}template-404{% endblock %}
 
+{% block robots_meta %}<meta name="robots" content="noindex, follow" />{% endblock %}
+
 {% block content %}
 <section class="error-page">
     <div class="container">
@@ -13,19 +15,38 @@
             <h2>Page Not Found</h2>
             <p>Sorry, the page you're looking for doesn't exist or has been moved.</p>
 
+            <div class="error-search">
+                <h3>Search Our Catalog</h3>
+                <form action="{% url 'product_list' %}" method="get" class="nsn-search-form">
+                    <div class="search-input-wrapper">
+                        <input type="text" name="q" placeholder="Search products by name, part number, or manufacturer..." class="nsn-search-input" autocomplete="off" />
+                        <button type="submit" class="btn btn-primary nsn-search-btn">Search</button>
+                    </div>
+                </form>
+            </div>
+
             <div class="error-actions">
                 <a href="/" class="btn btn-primary">Go to Homepage</a>
-                <a href="/contact/" class="btn btn-secondary">Contact Us</a>
+                <a href="/products/" class="btn btn-secondary">Browse Products</a>
+                <a href="/manufacturers/" class="btn btn-secondary">Browse Manufacturers</a>
             </div>
 
             <div class="error-links">
                 <h3>Popular Pages</h3>
                 <ul>
-                    <li><a href="/about/">About Us</a></li>
+                    <li><a href="/products/">Products Catalog</a></li>
+                    <li><a href="/manufacturers/">Manufacturers</a></li>
+                    <li><a href="/nsn/">NSN Lookup</a></li>
                     <li><a href="/equipment/">Equipment</a></li>
-                    <li><a href="/industries/">Industries We Serve</a></li>
-                    <li><a href="/contact/">Contact</a></li>
+                    <li><a href="/contact/">Contact Us</a></li>
                 </ul>
+            </div>
+
+            <div class="nsn-cta-box">
+                <h3>Can't Find What You Need?</h3>
+                <p>Our procurement team can source any part or equipment. Contact us and we'll help you find it.</p>
+                <a href="/contact/" class="btn btn-accent btn-lg">Request a Quote</a>
+                <p style="margin-top: var(--space-3);"><a href="tel:+18557062552" class="phone-link">Or call +1 855 706 2552</a></p>
             </div>
         </div>
     </div>

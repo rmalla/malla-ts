@@ -1,6 +1,8 @@
 from django.db import models
 from django.db.models import Q
 
+from home.models import FederalSupplyClass as _BaseFSC
+
 
 class NationalStockNumber(models.Model):
     """A unique National Stock Number (NSN) identifying a supply item.
@@ -49,3 +51,13 @@ class NationalStockNumber(models.Model):
         if self.nomenclature:
             return f"{self.nsn} — {self.nomenclature}"
         return self.nsn
+
+
+class FederalSupplyClass(_BaseFSC):
+    """Proxy so FederalSupplyClass appears under 'catalog' in Django admin."""
+
+    class Meta:
+        proxy = True
+        app_label = "catalog"
+        verbose_name = "Federal Supply Class"
+        verbose_name_plural = "Federal Supply Classes"

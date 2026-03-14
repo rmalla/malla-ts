@@ -87,6 +87,11 @@ KEYWORD_CATEGORIES = {
         "^HELMET,COMBAT", "^HELMET,FLIGHT", "^VEST,ARMORED", "BODY ARMOR",
         "^CAMOUFLAGE", "^PARACHUTE",
     ],
+    "hazmat": [
+        "^SEALING COMPOUND", "^COATING,", "^ADHESIVE,", "^PRIMER,",
+        "^CAULKING COMPOUND", "^POTTING COMPOUND", "^INSULATING COMPOUND",
+        "^PRESERVATIVE", "^CARTRIDGE,COMPRESSED GAS",
+    ],
 }
 
 # ── FSC codes for additional filtering ──────────────────────────────────────
@@ -96,6 +101,7 @@ FSC_CODES = {
         "6515": "Medical/surgical instruments",
         "6545": "Medical sets/kits/outfits",
         "8465": "Individual equipment (body gear)",
+        "8030": "Preservative and Sealing Compounds — chemical hazmat",
     },
 }
 
@@ -221,9 +227,9 @@ class Command(BaseCommand):
         q = models.Q()
         for kw in keywords:
             if kw.startswith("^"):
-                q |= models.Q(nomenclature__istartswith=kw[1:])
+                q |= models.Q(nsn__nomenclature__istartswith=kw[1:])
             else:
-                q |= models.Q(nomenclature__icontains=kw)
+                q |= models.Q(nsn__nomenclature__icontains=kw)
 
         qs = Product.objects.filter(is_active=Product.NEUTRAL).filter(q)
         count = qs.count()
@@ -234,6 +240,25 @@ class Command(BaseCommand):
         if execute and count > 0:
             qs.update(is_active=Product.DISABLED)
 
+            # Persist keywords as PipelineFilter entries for future imports
+            # ^ prefix → startswith → fnmatch pattern "KEYWORD*"
+            # no prefix → contains → fnmatch pattern "*KEYWORD*"
+            for kw in keywords:
+                if kw.startswith("^"):
+                    pattern = kw[1:] + "*"
+                else:
+                    pattern = "*" + kw + "*"
+                PipelineFilter.objects.get_or_create(
+                    field_type=FilterFieldType.NOMENCLATURE,
+                    field_value=pattern,
+                    defaults={
+                        "action": FilterAction.EXCLUDE,
+                        "stage": PipelineStage.ALL,
+                        "is_active": True,
+                        "reason": f"Restricted category '{cat_name}' — auto-disabled by disable_restricted_products",
+                    },
+                )
+
         return count
 
     def _disable_by_fsc(self, execute):
@@ -243,7 +268,7 @@ class Command(BaseCommand):
         # Exclude products already caught by keyword categories
         qs = Product.objects.filter(
             is_active=Product.NEUTRAL,
-            fsc__code__in=fsc_codes,
+            nsn__fsc__code__in=fsc_codes,
         )
         count = qs.count()
 
@@ -257,7 +282,7 @@ class Command(BaseCommand):
         for code, desc in FSC_CODES["fsc"].items():
             sub_count = Product.objects.filter(
                 is_active=Product.NEUTRAL,
-                fsc__code=code,
+                nsn__fsc__code=code,
             ).count()
             if sub_count > 0:
                 self.stdout.write(f"    FSC {code} ({desc}): {sub_count:,}")

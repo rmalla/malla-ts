@@ -1730,7 +1730,7 @@ body.menu-open {
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 80px;
+    height: 160px;
     margin-bottom: var(--space-3);
     background: var(--gray-50);
     border-radius: var(--radius-sm);
@@ -3897,4 +3897,16 @@ body.menu-open {
         flex-direction: column;
         gap: var(--space-1);
     }
+}
+
+/* Thin border on all logo / product images */
+.product-hero-image,
+.product-tile__image img,
+.related-card-image img,
+.mfr-header-logo img {
+    border: 1px solid var(--gray-200);
+}
+
+.product-hero-image {
+    padding: var(--space-4);
 }

@@ -1,14 +1,16 @@
 {% extends "base.html" %}
 {% load static humanize %}
 
-{% block title %}Products Catalog{% endblock %}
+{% block title %}Products Catalog{% if products.number > 1 %} - Page {{ products.number }} of {{ products.paginator.num_pages }}{% endif %}{% endblock %}
 
 {% block meta_description %}
 <meta name="description" content="Browse {{ total_count|default:'thousands of' }} government and commercial products. Find parts by part number or manufacturer. Request quotes from Malla Technical Services." />
 {% endblock %}
 
 {% block canonical_url %}
-<link rel="canonical" href="https://www.malla-ts.com/products/" />
+<link rel="canonical" href="https://www.malla-ts.com/products/{% if products.number > 1 %}?page={{ products.number }}{% endif %}" />
+{% if products.has_previous %}<link rel="prev" href="https://www.malla-ts.com/products/{% if products.previous_page_number > 1 %}?page={{ products.previous_page_number }}{% endif %}" />{% endif %}
+{% if products.has_next %}<link rel="next" href="https://www.malla-ts.com/products/?page={{ products.next_page_number }}" />{% endif %}
 {% endblock %}
 
 {% block og_tags %}

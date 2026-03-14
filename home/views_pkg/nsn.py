@@ -7,7 +7,6 @@ from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.core.cache import cache as django_cache
-from django.views.decorators.cache import cache_page
 
 from catalog.models import Manufacturer, Product, NationalStockNumber
 from home.models import FederalSupplyClass
@@ -71,7 +70,6 @@ def _get_sidebar_data():
     return sidebar
 
 
-@cache_page(60 * 60 * 24)
 def nsn_detail(request, nsn):
     """Detail page for a single NSN — shows all products with that NSN."""
     raw = normalize_nsn(nsn)
@@ -185,7 +183,6 @@ def nsn_detail(request, nsn):
     return render(request, "home/nsn_detail.html", context)
 
 
-@cache_page(60 * 60)
 def nsn_search(request):
     """NSN browse and search page — always shows paginated results."""
     query = request.GET.get("q", "").strip()
@@ -325,7 +322,6 @@ def nsn_search(request):
     return render(request, "home/nsn_search.html", context)
 
 
-@cache_page(60 * 60)
 def nsn_fsc_list(request, fsc_code):
     """Redirect FSC detail pages to the browse page with FSC filter."""
     # Preserve any query params

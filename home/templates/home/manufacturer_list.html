@@ -1,14 +1,16 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Manufacturers{% endblock %}
+{% block title %}Manufacturers{% if manufacturers.number > 1 %} - Page {{ manufacturers.number }} of {{ manufacturers.paginator.num_pages }}{% endif %}{% endblock %}
 
 {% block meta_description %}
 <meta name="description" content="Browse {{ total_count|default:'hundreds of' }} verified manufacturers and government parts suppliers. Find company details and product catalogs at Malla Technical Services." />
 {% endblock %}
 
 {% block canonical_url %}
-<link rel="canonical" href="https://www.malla-ts.com/manufacturers/" />
+<link rel="canonical" href="https://www.malla-ts.com/manufacturers/{% if manufacturers.number > 1 %}?page={{ manufacturers.number }}{% endif %}" />
+{% if manufacturers.has_previous %}<link rel="prev" href="https://www.malla-ts.com/manufacturers/{% if manufacturers.previous_page_number > 1 %}?page={{ manufacturers.previous_page_number }}{% endif %}" />{% endif %}
+{% if manufacturers.has_next %}<link rel="next" href="https://www.malla-ts.com/manufacturers/?page={{ manufacturers.next_page_number }}" />{% endif %}
 {% endblock %}
 
 {% block og_tags %}

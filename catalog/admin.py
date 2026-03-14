@@ -1,5 +1,5 @@
 from django.contrib import admin, messages
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.urls import path, reverse
@@ -8,6 +8,7 @@ from django.utils.html import format_html
 from .constants import FilterFieldType, FilterAction, PipelineStage
 from home.models import FederalSupplyClass
 from .models import (
+    FederalSupplyClass,
     Manufacturer,
     ManufacturerProfile,
     NationalStockNumber,
@@ -64,7 +65,7 @@ class ManufacturerProfileInline(admin.StackedInline):
     model = ManufacturerProfile
     extra = 0
     max_num = 1
-    raw_id_fields = ("logo",)
+    exclude = ("logo",)
     readonly_fields = ("logo_preview",)
 
     def logo_preview(self, obj):
@@ -84,6 +85,7 @@ class ManufacturerProfileInline(admin.StackedInline):
 
 @admin.register(PipelineFilter)
 class PipelineFilterAdmin(admin.ModelAdmin):
+    change_list_template = "admin/catalog/pipelinefilter/change_list.html"
     list_display = (
         "field_type", "field_value", "action", "stage",
         "is_active", "reason", "created_by", "updated_at",
@@ -111,6 +113,33 @@ class PipelineFilterAdmin(admin.ModelAdmin):
         if not change:
             obj.created_by = request.user
         super().save_model(request, obj, form, change)
+
+    def get_urls(self):
+        custom_urls = [
+            path(
+                "apply-filters/",
+                self.admin_site.admin_view(self.apply_filters_view),
+                name="catalog_pipelinefilter_apply_filters",
+            ),
+        ]
+        return custom_urls + super().get_urls()
+
+    def apply_filters_view(self, request):
+        if request.method != "POST":
+            return JsonResponse({"ok": False, "error": "POST required"}, status=405)
+        from django.core.management import call_command
+        from io import StringIO
+        execute = "execute" in request.POST
+        out = StringIO()
+        call_command("apply_pipeline_filters", execute=execute, stdout=out)
+        output = out.getvalue().strip()
+        # Last line has the summary
+        summary = output.split("\n")[-1]
+        if execute:
+            messages.success(request, summary)
+        else:
+            messages.info(request, f"[DRY RUN] {summary}")
+        return redirect(reverse("admin:catalog_pipelinefilter_changelist"))
 
 
 # =============================================================================
@@ -147,6 +176,40 @@ class ImportJobAdmin(admin.ModelAdmin):
 
     def has_change_permission(self, request, obj=None):
         return False
+
+
+# =============================================================================
+# FSC Filter (shared by Product, NSN, and Manufacturer admins)
+# =============================================================================
+
+class FSCFilter(admin.SimpleListFilter):
+    title = "FSC"
+    parameter_name = "fsc"
+    template = "admin/catalog/fsc_filter.html"
+
+    def lookups(self, request, model_admin):
+        if model_admin.model in (Product, Manufacturer):
+            qs = FederalSupplyClass.objects.filter(
+                nsns__products__isnull=False
+            ).distinct()
+        else:
+            qs = FederalSupplyClass.objects.filter(
+                nsns__isnull=False
+            ).distinct()
+        return [
+            (fsc.code, f"{fsc.code} - {fsc.name}")
+            for fsc in qs.order_by("code")
+        ]
+
+    def queryset(self, request, queryset):
+        val = self.value()
+        if val:
+            if queryset.model is Product:
+                return queryset.filter(nsn__fsc__code=val)
+            if queryset.model is Manufacturer:
+                return queryset.filter(products__nsn__fsc__code=val).distinct()
+            return queryset.filter(fsc__code=val)
+        return queryset
 
 
 # =============================================================================
@@ -207,6 +270,21 @@ class ProductCountFilter(admin.SimpleListFilter):
         return queryset
 
 
+class HasWebsiteFilter(admin.SimpleListFilter):
+    title = "has website"
+    parameter_name = "has_website"
+
+    def lookups(self, request, model_admin):
+        return [("yes", "Yes"), ("no", "No")]
+
+    def queryset(self, request, queryset):
+        if self.value() == "yes":
+            return queryset.exclude(website="").exclude(website__isnull=True)
+        if self.value() == "no":
+            return queryset.filter(Q(website="") | Q(website__isnull=True))
+        return queryset
+
+
 class CountryGroupFilter(admin.SimpleListFilter):
     title = "country"
     parameter_name = "country_group"
@@ -231,15 +309,15 @@ class ManufacturerAdmin(admin.ModelAdmin):
     change_list_template = "admin/catalog/manufacturer/change_list.html"
     list_display = (
         "logo_thumb", "display_name_col", "product_count_col", "cage_code", "slug",
-        "website",
+        "website_link",
         "city", "state", "country",
         "manufacturer_toggle",
         "status_toggle",
         "view_on_site_link",
     )
     list_filter = (
-        ProfileStatusFilter, ProductCountFilter, CountryGroupFilter,
-        "is_manufacturer", "resolution_status",
+        ProfileStatusFilter, ProductCountFilter, HasWebsiteFilter, CountryGroupFilter,
+        "is_manufacturer", "resolution_status", FSCFilter,
     )
     list_select_related = ("profile", "profile__logo")
     search_fields = ("cage_code", "company_name", "slug", "uei")
@@ -270,15 +348,15 @@ class ManufacturerAdmin(admin.ModelAdmin):
         css = {"all": ("catalog/css/toggle.css",)}
         js = ("catalog/js/toggle.js",)
 
-    readonly_fields = ("profile_display_name", "manufacturer_toggle_detail", "status_toggle_detail", "view_on_site_detail", "logo_preview_detail")
+    readonly_fields = ("profile_display_name", "manufacturer_toggle_detail", "status_toggle_detail", "view_on_site_detail", "logo_preview_detail", "product_count_link", "fetch_website_button")
 
     fieldsets = (
         (None, {
-            "fields": ("logo_preview_detail", "view_on_site_detail", "manufacturer_toggle_detail", "status_toggle_detail"),
+            "fields": ("logo_preview_detail", "product_count_link", "view_on_site_detail", "manufacturer_toggle_detail", "status_toggle_detail"),
         }),
         ("Identification", {
             "fields": (
-                "cage_code", "company_name", "profile_display_name", "slug", "website", "uei",
+                "cage_code", "company_name", "profile_display_name", "slug", "website", "fetch_website_button", "uei",
             ),
         }),
         ("Location", {
@@ -378,6 +456,14 @@ class ManufacturerAdmin(admin.ModelAdmin):
             return "(no profile)"
     profile_display_name.short_description = "Display Name"
 
+    def product_count_link(self, obj):
+        if not obj.pk:
+            return "-"
+        count = obj.products.count()
+        url = reverse("admin:catalog_product_changelist") + f"?manufacturer__id__exact={obj.pk}"
+        return format_html('<a href="{}">{} product{}</a>', url, count, "" if count == 1 else "s")
+    product_count_link.short_description = "Products"
+
     def get_urls(self):
         custom_urls = [
             path(
@@ -404,6 +490,16 @@ class ManufacturerAdmin(admin.ModelAdmin):
                 "extract-logo/<int:pk>/",
                 self.admin_site.admin_view(self.extract_logo_view),
                 name="catalog_manufacturer_extract_logo",
+            ),
+            path(
+                "upload-logo/<int:pk>/",
+                self.admin_site.admin_view(self.upload_logo_view),
+                name="catalog_manufacturer_upload_logo",
+            ),
+            path(
+                "fetch-website/<int:pk>/",
+                self.admin_site.admin_view(self.fetch_website_view),
+                name="catalog_manufacturer_fetch_website",
             ),
             path(
                 "refresh-display-names/",
@@ -442,6 +538,92 @@ class ManufacturerAdmin(admin.ModelAdmin):
             messages.warning(request, f"Logo extraction failed: {result['message']}")
 
         return redirect(reverse("admin:catalog_manufacturer_change", args=[pk]))
+
+    def upload_logo_view(self, request, pk):
+        if request.method != "POST":
+            return JsonResponse({"ok": False, "error": "POST required"}, status=405)
+
+        try:
+            mfr = Manufacturer.objects.get(pk=pk)
+        except Manufacturer.DoesNotExist:
+            return JsonResponse({"ok": False, "error": "Not found"}, status=404)
+
+        redirect_url = reverse("admin:catalog_manufacturer_change", args=[pk])
+
+        if "logo" not in request.FILES:
+            messages.warning(request, "No file selected.")
+            return redirect(redirect_url)
+
+        try:
+            from catalog.services.image_processor import process_logo
+            from django.core.files.base import ContentFile
+            from wagtail.images import get_image_model
+
+            webp_bytes, meta = process_logo(request.FILES["logo"].read())
+
+            ImageModel = get_image_model()
+            slug = mfr.slug or mfr.cage_code.lower()
+            filename = f"logo-{slug}.webp"
+            title = f"{mfr.display_name} Logo"
+
+            wagtail_image = ImageModel(title=title)
+            wagtail_image.file = ContentFile(webp_bytes, name=filename)
+            wagtail_image.save()
+
+            profile, _ = ManufacturerProfile.objects.get_or_create(manufacturer=mfr)
+            profile.logo = wagtail_image
+            profile.save(update_fields=["logo"])
+
+            messages.success(request, f"Logo uploaded and processed ({meta.get('final_size', '400×400')})")
+        except Exception as e:
+            messages.warning(request, f"Logo upload failed: {e}")
+
+        return redirect(redirect_url)
+
+    def fetch_website_view(self, request, pk):
+        if request.method != "POST":
+            return JsonResponse({"ok": False, "error": "POST required"}, status=405)
+
+        try:
+            mfr = Manufacturer.objects.get(pk=pk)
+        except Manufacturer.DoesNotExist:
+            return JsonResponse({"ok": False, "error": "Not found"}, status=404)
+
+        if not mfr.cage_code:
+            messages.warning(request, "No CAGE code — cannot look up website.")
+            return redirect(reverse("admin:catalog_manufacturer_change", args=[pk]))
+
+        from catalog.services.sam_api import fetch_website_by_cage
+        url = fetch_website_by_cage(mfr.cage_code)
+
+        if url:
+            mfr.website = url
+            mfr.save(update_fields=["website"])
+            messages.success(request, f"Website set to {url}")
+        else:
+            messages.warning(request, f"No website found on SAM.gov for CAGE {mfr.cage_code}")
+
+        return redirect(reverse("admin:catalog_manufacturer_change", args=[pk]))
+
+    def fetch_website_button(self, obj):
+        if not obj.pk or obj.website or not obj.cage_code:
+            return ""
+        fetch_url = reverse(
+            "admin:catalog_manufacturer_fetch_website", args=[obj.pk],
+        )
+        return format_html(
+            '<a href="#" onclick="'
+            "var f=document.createElement('form');"
+            "f.method='POST';f.action='{}';"
+            "var c=document.createElement('input');"
+            "c.type='hidden';c.name='csrfmiddlewaretoken';"
+            "c.value=document.querySelector('[name=csrfmiddlewaretoken]').value;"
+            "f.appendChild(c);document.body.appendChild(f);f.submit();"
+            'return false;" '
+            'class="button" style="padding:6px 14px;">Fetch from SAM.gov</a>',
+            fetch_url,
+        )
+    fetch_website_button.short_description = "Fetch Website"
 
     def set_status_view(self, request, pk):
         if request.method != "POST":
@@ -689,6 +871,9 @@ class ManufacturerAdmin(admin.ModelAdmin):
             extract_url = reverse(
                 "admin:catalog_manufacturer_extract_logo", args=[obj.pk],
             )
+            upload_url = reverse(
+                "admin:catalog_manufacturer_upload_logo", args=[obj.pk],
+            )
             btn_label = "Re-extract Logo" if logo else "Extract Logo"
             return format_html(
                 '{}'
@@ -700,8 +885,22 @@ class ManufacturerAdmin(admin.ModelAdmin):
                 "c.value=document.querySelector('[name=csrfmiddlewaretoken]').value;"
                 "f.appendChild(c);document.body.appendChild(f);f.submit();"
                 'return false;" '
-                'class="button" style="padding:6px 14px;">{}</a>',
-                img_html, extract_url, btn_label,
+                'class="button" style="padding:6px 14px;">{}</a>'
+                '&nbsp;&nbsp;'
+                '<form method="POST" action="{}" enctype="multipart/form-data" '
+                'style="display:inline-block; vertical-align:middle; margin-top:4px;">'
+                '<input type="hidden" name="csrfmiddlewaretoken" '
+                'value="" id="upload-logo-csrf">'
+                '<script>document.addEventListener("DOMContentLoaded",function(){{'
+                'var t=document.querySelector("[name=csrfmiddlewaretoken]");'
+                'if(t)document.getElementById("upload-logo-csrf").value=t.value;'
+                '}});</script>'
+                '<input type="file" name="logo" accept="image/*" '
+                'style="display:inline-block; max-width:200px;">'
+                '&nbsp;<button type="submit" class="button" '
+                'style="padding:6px 14px;">Upload Logo</button>'
+                '</form>',
+                img_html, extract_url, btn_label, upload_url,
             )
 
         if logo:
@@ -722,37 +921,43 @@ class ManufacturerAdmin(admin.ModelAdmin):
     product_count_col.short_description = "Products"
     product_count_col.admin_order_field = "product_count"
 
+    def website_link(self, obj):
+        if not obj.website:
+            return "-"
+        return format_html('<a href="{}" target="_blank">{}</a>', obj.website, obj.website)
+    website_link.short_description = "Website"
+    website_link.admin_order_field = "website"
+
 
 # =============================================================================
-# FSC Filter (shared by Product + NSN admins)
+# Federal Supply Classes (proxy — moved from home app)
 # =============================================================================
 
-class FSCFilter(admin.SimpleListFilter):
-    title = "FSC"
-    parameter_name = "fsc"
-    template = "admin/catalog/fsc_filter.html"
+@admin.register(FederalSupplyClass)
+class FederalSupplyClassAdmin(admin.ModelAdmin):
+    list_display = ('code', 'name', 'group', 'group_name', 'nsn_count', 'product_count')
+    list_filter = ('group',)
+    search_fields = ('code', 'name', 'group_name')
+    ordering = ('code',)
 
-    def lookups(self, request, model_admin):
-        if model_admin.model is Product:
-            qs = FederalSupplyClass.objects.filter(
-                nsns__products__isnull=False
-            ).distinct()
-        else:
-            qs = FederalSupplyClass.objects.filter(
-                nsns__isnull=False
-            ).distinct()
-        return [
-            (fsc.code, f"{fsc.code} - {fsc.name}")
-            for fsc in qs.order_by("code")
-        ]
+    def get_queryset(self, request):
+        from django.db.models import Count
+        return super().get_queryset(request).annotate(
+            _nsn_count=Count("nsns", distinct=True),
+            _product_count=Count("nsns__products", distinct=True),
+        )
 
-    def queryset(self, request, queryset):
-        val = self.value()
-        if val:
-            if queryset.model is Product:
-                return queryset.filter(nsn__fsc__code=val)
-            return queryset.filter(fsc__code=val)
-        return queryset
+    def nsn_count(self, obj):
+        url = reverse("admin:catalog_nationalstocknumber_changelist") + f"?fsc={obj.code}"
+        return format_html('<a href="{}">{}</a>', url, obj._nsn_count)
+    nsn_count.short_description = 'NSNs'
+    nsn_count.admin_order_field = '_nsn_count'
+
+    def product_count(self, obj):
+        url = reverse("admin:catalog_product_changelist") + f"?fsc={obj.code}"
+        return format_html('<a href="{}">{}</a>', url, obj._product_count)
+    product_count.short_description = 'Products'
+    product_count.admin_order_field = '_product_count'
 
 
 # =============================================================================
@@ -761,13 +966,14 @@ class FSCFilter(admin.SimpleListFilter):
 
 @admin.register(NationalStockNumber)
 class NationalStockNumberAdmin(admin.ModelAdmin):
-    list_display = ("nsn", "nomenclature", "fsc", "unit_of_issue", "is_active", "product_count")
+    list_display = ("nsn", "nomenclature", "fsc_filter_link", "fsc_link", "unit_of_issue", "is_active", "product_count")
     list_filter = ("is_active", FSCFilter)
     search_fields = ("nsn", "nomenclature", "niin")
     readonly_fields = ("created_at", "updated_at")
     raw_id_fields = ("fsc",)
     ordering = ("nsn",)
     list_per_page = 50
+    list_select_related = ("fsc",)
 
     def get_queryset(self, request):
         return super().get_queryset(request).annotate(_product_count=Count("products"))
@@ -776,6 +982,21 @@ class NationalStockNumberAdmin(admin.ModelAdmin):
         return obj._product_count
     product_count.short_description = "Products"
     product_count.admin_order_field = "_product_count"
+
+    def fsc_link(self, obj):
+        if not obj.fsc:
+            return "-"
+        url = reverse("admin:catalog_federalsupplyclass_change", args=[obj.fsc.pk])
+        return format_html('<a href="{}">{} - {}</a>', url, obj.fsc.code, obj.fsc.name)
+    fsc_link.short_description = "FSC"
+    fsc_link.admin_order_field = "fsc__code"
+
+    def fsc_filter_link(self, obj):
+        if not obj.fsc:
+            return ""
+        url = reverse("admin:catalog_nationalstocknumber_changelist") + f"?fsc={obj.fsc.code}"
+        return format_html('<a href="{}">F</a>', url)
+    fsc_filter_link.short_description = "F"
 
 
 # =============================================================================
@@ -998,3 +1219,31 @@ class ProductAdmin(admin.ModelAdmin):
         url = f"/products/{obj.manufacturer.slug}/{obj.part_number_slug}/"
         return format_html('<a href="{}" target="_blank">View</a>', url)
     view_on_site_link.short_description = "Public Page"
+
+
+# =============================================================================
+# Custom model ordering in admin sidebar
+# =============================================================================
+
+CATALOG_MODEL_ORDER = [
+    "ImportJob",
+    "Manufacturer",
+    "FederalSupplyClass",
+    "NationalStockNumber",
+    "PipelineFilter",
+    "Product",
+]
+
+_original_get_app_list = admin.AdminSite.get_app_list
+
+
+def _patched_get_app_list(self, request, app_label=None):
+    app_list = _original_get_app_list(self, request, app_label=app_label)
+    for app in app_list:
+        if app["app_label"] == "catalog":
+            order_map = {name: i for i, name in enumerate(CATALOG_MODEL_ORDER)}
+            app["models"].sort(key=lambda m: order_map.get(m["object_name"], 999))
+    return app_list
+
+
+admin.AdminSite.get_app_list = _patched_get_app_list
