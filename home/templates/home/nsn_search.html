@@ -23,6 +23,12 @@
 <meta property="og:locale" content="en_US" />
 {% endblock %}
 
+{% block extra_structured_data %}
+{% if search_ld %}
+<script type="application/ld+json">{{ search_ld|safe }}</script>
+{% endif %}
+{% endblock %}
+
 {% block content %}
 
 <section class="page-header page-header--with-image nsn-header" style="background-image: url('{% static 'images/hero-nsn.jpg' %}')">
@@ -84,11 +90,21 @@
             {% if results.has_other_pages %}
             <nav class="pagination">
                 {% if results.has_previous %}
-                <a href="?q={{ query }}&page={{ results.previous_page_number }}" class="btn btn-sm">&laquo; Previous</a>
+                <a href="?q={{ query }}&page=1" class="btn btn-sm">&laquo;</a>
+                <a href="?q={{ query }}&page={{ results.previous_page_number }}" class="btn btn-sm">&lsaquo;</a>
                 {% endif %}
-                <span class="page-info">Page {{ results.number }} of {{ results.paginator.num_pages }}</span>
+                {% for page_num in results.paginator.page_range %}
+                    {% if page_num == results.number %}
+                    <span class="btn btn-sm btn-accent">{{ page_num }}</span>
+                    {% elif page_num == 1 or page_num == results.paginator.num_pages or page_num >= results.number|add:"-2" and page_num <= results.number|add:"2" %}
+                    <a href="?q={{ query }}&page={{ page_num }}" class="btn btn-sm">{{ page_num }}</a>
+                    {% elif page_num == 2 and results.number > 4 or page_num == results.paginator.num_pages|add:"-1" and results.number < results.paginator.num_pages|add:"-3" %}
+                    <span class="page-ellipsis">&hellip;</span>
+                    {% endif %}
+                {% endfor %}
                 {% if results.has_next %}
-                <a href="?q={{ query }}&page={{ results.next_page_number }}" class="btn btn-sm">Next &raquo;</a>
+                <a href="?q={{ query }}&page={{ results.next_page_number }}" class="btn btn-sm">&rsaquo;</a>
+                <a href="?q={{ query }}&page={{ results.paginator.num_pages }}" class="btn btn-sm">&raquo;</a>
                 {% endif %}
             </nav>
             {% endif %}

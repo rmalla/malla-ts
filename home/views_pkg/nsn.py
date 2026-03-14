@@ -7,7 +7,6 @@ from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.cache import cache_page
-from django_ratelimit.decorators import ratelimit
 
 from catalog.models import Product, NationalStockNumber
 from home.models import FederalSupplyClass
@@ -129,7 +128,6 @@ def nsn_detail(request, nsn):
 
 
 @cache_page(60 * 60)
-@ratelimit(key="ip", rate="60/m", method="GET", block=True)
 def nsn_search(request):
     """NSN search and browse page."""
     query = request.GET.get("q", "").strip()
@@ -174,17 +172,29 @@ def nsn_search(request):
         .order_by("code")
     )
 
+    search_ld = json.dumps({
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "url": "https://www.malla-ts.com/nsn/",
+        "name": "NSN Lookup - Malla Technical Services",
+        "potentialAction": {
+            "@type": "SearchAction",
+            "target": "https://www.malla-ts.com/nsn/?q={search_term_string}",
+            "query-input": "required name=search_term_string",
+        },
+    })
+
     context = {
         "query": query,
         "results": results,
         "total_count": total_count,
         "fsc_list": fsc_list,
+        "search_ld": search_ld,
     }
     return render(request, "home/nsn_search.html", context)
 
 
 @cache_page(60 * 60)
-@ratelimit(key="ip", rate="60/m", method="GET", block=True)
 def nsn_fsc_list(request, fsc_code):
     """List distinct NSNs within a Federal Supply Class."""
     fsc = get_object_or_404(FederalSupplyClass, code=fsc_code)
@@ -209,9 +219,20 @@ def nsn_fsc_list(request, fsc_code):
     paginator = Paginator(nsns, 25)
     nsns_page = paginator.get_page(page_number)
 
+    breadcrumb_ld = json.dumps({
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+            {"@type": "ListItem", "position": 1, "name": "Home", "item": "https://www.malla-ts.com/"},
+            {"@type": "ListItem", "position": 2, "name": "NSN Search", "item": "https://www.malla-ts.com/nsn/"},
+            {"@type": "ListItem", "position": 3, "name": f"FSC {fsc.code} — {fsc.name}", "item": f"https://www.malla-ts.com/nsn/fsc/{fsc.code}/"},
+        ],
+    })
+
     context = {
         "fsc": fsc,
         "nsns": nsns_page,
         "total_count": total_count,
+        "breadcrumb_ld": breadcrumb_ld,
     }
     return render(request, "home/nsn_fsc_list.html", context)
