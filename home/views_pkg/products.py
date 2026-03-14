@@ -117,17 +117,23 @@ def manufacturer_detail(request, slug):
         profile__status=Manufacturer.ENABLED,
     )
 
+    page_number = request.GET.get("page", 1)
+
     products = (
         Product.objects.published().filter(manufacturer=org)
         .select_related("nsn", "nsn__fsc")
         .order_by("name")
     )
 
+    product_count = products.count()
+    paginator = Paginator(products, 20)
+    products_page = paginator.get_page(page_number)
+
     context = {
         "cage": org,  # backward compat
         "manufacturer": org,
-        "products": products,
-        "product_count": products.count(),
+        "products": products_page,
+        "product_count": product_count,
         "format_nsn": format_nsn,
     }
     return render(request, "home/manufacturer_detail.html", context)

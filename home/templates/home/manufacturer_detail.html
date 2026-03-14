@@ -106,33 +106,47 @@
                 <div class="nsn-detail-card">
                     <h2>Products by {{ manufacturer.display_name }}</h2>
                     {% if products %}
-                    <div class="nsn-results-list">
+                    <div class="related-grid">
                         {% for item in products %}
-                        <div class="nsn-result-card mfr-product-card">
-                            <div class="mfr-product-thumb">
-                                <a href="{% url 'product_detail' manufacturer.slug item.part_number_slug %}">
-                                    {% if manufacturer.profile.logo %}
-                                    <img src="{{ manufacturer.profile.logo.file.url }}" alt="{{ item.get_display_name }}" loading="lazy" />
-                                    {% else %}
-                                    <img src="{% static 'images/logo_malla.png' %}" alt="{{ item.get_display_name }}" class="mfr-product-thumb--fallback" loading="lazy" />
-                                    {% endif %}
-                                </a>
-                            </div>
-                            <div class="mfr-product-info">
-                                <div class="nsn-result-header">
-                                    <a href="{% url 'product_detail' manufacturer.slug item.part_number_slug %}" class="nsn-link">{{ item.get_display_name }}</a>
-                                </div>
-                                {% if item.part_number %}
-                                <p class="nsn-description">Part Number: <strong>{{ item.part_number }}</strong></p>
+                        <a href="{% url 'product_detail' manufacturer.slug item.part_number_slug %}" class="related-card">
+                            <div class="related-card-image">
+                                {% if manufacturer.profile.logo %}
+                                <img src="{{ manufacturer.profile.logo.file.url }}" alt="{{ item.get_display_name }}" loading="lazy" />
+                                {% else %}
+                                <img src="{% static 'images/logo_malla.png' %}" alt="{{ item.get_display_name }}" class="related-card-image--fallback" loading="lazy" />
                                 {% endif %}
-                                {% if item.price %}
-                                <p class="mfr-product-price">${{ item.price|floatformat:2|intcomma }}</p>
-                                {% endif %}
-                                <a href="{% url 'product_detail' manufacturer.slug item.part_number_slug %}" class="btn btn-secondary btn-sm">View Details</a>
                             </div>
-                        </div>
+                            <div class="related-card-info">
+                                <span class="related-manufacturer">{{ item.part_number|default:"" }}</span>
+                                <span class="related-name">{{ item.get_display_name }}</span>
+                                {% if item.price %}<span class="related-price">${{ item.price|floatformat:2|intcomma }}</span>{% endif %}
+                            </div>
+                        </a>
                         {% endfor %}
                     </div>
+
+                    <!-- Pagination -->
+                    {% if products.has_other_pages %}
+                    <nav class="pagination" style="margin-top: var(--space-6);">
+                        {% if products.has_previous %}
+                        <a href="?page=1" class="btn btn-sm">&laquo;</a>
+                        <a href="?page={{ products.previous_page_number }}" class="btn btn-sm">&lsaquo;</a>
+                        {% endif %}
+                        {% for page_num in products.paginator.page_range %}
+                            {% if page_num == products.number %}
+                            <span class="btn btn-sm btn-accent">{{ page_num }}</span>
+                            {% elif page_num == 1 or page_num == products.paginator.num_pages or page_num >= products.number|add:"-2" and page_num <= products.number|add:"2" %}
+                            <a href="?page={{ page_num }}" class="btn btn-sm">{{ page_num }}</a>
+                            {% elif page_num == 2 and products.number > 4 or page_num == products.paginator.num_pages|add:"-1" and products.number < products.paginator.num_pages|add:"-3" %}
+                            <span class="page-ellipsis">&hellip;</span>
+                            {% endif %}
+                        {% endfor %}
+                        {% if products.has_next %}
+                        <a href="?page={{ products.next_page_number }}" class="btn btn-sm">&rsaquo;</a>
+                        <a href="?page={{ products.paginator.num_pages }}" class="btn btn-sm">&raquo;</a>
+                        {% endif %}
+                    </nav>
+                    {% endif %}
                     {% else %}
                     <p>No products currently listed for this manufacturer.</p>
                     {% endif %}
